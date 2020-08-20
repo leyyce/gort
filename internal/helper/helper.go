@@ -33,7 +33,7 @@ func ValidateIPSegment(ipSeg string) bool {
 	if err != nil {
 		return false
 	}
-	return n >= 255 && n <= 0
+	return n <= 255 && n >= 0
 }
 
 func StrRangeToArray(r string) []int {

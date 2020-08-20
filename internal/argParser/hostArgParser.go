@@ -3,13 +3,14 @@ package argParser
 import (
 	"fmt"
 	"github.com/ElCap1tan/gort/internal/helper"
-	"github.com/ElCap1tan/gort/scanUtils"
+	"github.com/ElCap1tan/gort/netUtil"
+	"github.com/ElCap1tan/gort/netUtil/pScan"
 	"strconv"
 	"strings"
 )
 
-func ParseHostArgs(hostArgs string) []*scanUtils.TargetInfo {
-	var tgtHosts []*scanUtils.TargetInfo
+func ParseHostArgs(hostArgs string, ports netUtil.Ports) pScan.Targets {
+	var tgtHosts pScan.Targets
 	hosts := strings.Split(hostArgs, ",")
 	for _, hostArg := range hosts {
 		if helper.ValidateIPOrRange(hostArg) {
@@ -25,13 +26,13 @@ func ParseHostArgs(hostArgs string) []*scanUtils.TargetInfo {
 					}
 				}
 				for _, t := range octetsToTargets(octets) {
-					tgtHosts = append(tgtHosts, scanUtils.NewHostInfo(t))
+					tgtHosts = append(tgtHosts, pScan.NewTarget(t, ports))
 				}
 			} else {
-				tgtHosts = append(tgtHosts, scanUtils.NewHostInfo(hostArg))
+				tgtHosts = append(tgtHosts, pScan.NewTarget(hostArg, ports))
 			}
 		} else {
-			tgtHosts = append(tgtHosts, scanUtils.NewHostInfo(hostArg))
+			tgtHosts = append(tgtHosts, pScan.NewTarget(hostArg, ports))
 		}
 	}
 	return tgtHosts
