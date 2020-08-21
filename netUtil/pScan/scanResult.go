@@ -23,11 +23,11 @@ func NewScanResult(t *Target, startTime time.Time) *ScanResult {
 
 func (s *ScanResult) String() string {
 	return fmt.Sprintf(""+
-		"=============== SCAN RESULT ================================\n"+
+		"=============== SCAN RESULT ================================\n\n"+
 		"Scan started  @ %s\n"+
 		"Scan finished @ %s\n"+
 		"%s\n"+
-		"%s\n"+
+		"%s\n\n"+
 		"============================================================",
 		s.StartTime.Format(time.RFC1123), s.EndTime.Format(time.RFC1123),
 		s.Target,
@@ -37,24 +37,24 @@ func (s *ScanResult) String() string {
 func (m *MultiScanResult) String() string {
 	ret := "" +
 		"#################################################################\n" +
-		"############### SCAN RESULTS ####################################\n" +
-		"#################################################################\n"
+		"############### MULTI SCAN RESULT ###############################\n" +
+		"#################################################################\n\n"
 	if len(m.Resolved) == 0 {
-		ret += "NONE\n"
+		ret += "\tNONE\n"
 	}
 	for _, scanResult := range m.Resolved {
-		ret += scanResult.String() + "\n"
+		ret += scanResult.String() + "\n\n"
 	}
-	ret += "" +
+	ret += "\n" +
 		"#################################################################\n" +
 		"############### UNRESOLVED ######################################\n" +
-		"#################################################################\n"
+		"#################################################################\n\n"
 	if len(m.Unresolved) == 0 {
-		ret += "NONE\n"
+		ret += "\tNONE\n"
 	}
 	for _, target := range m.Unresolved {
-		ret += target.String() + "\n"
+		ret += target.String() + "\n\n"
 	}
-	ret += "#################################################################"
+	ret += "\n#################################################################"
 	return ret
 }

@@ -16,22 +16,50 @@ func NewPortResults() *PortResults {
 }
 
 func (p *PortResults) String() string {
-	ret := "" +
-		"*************** PORT RESULT **********************\n" +
-		"Open TCP Ports:\n"
-	if len(p.Open) == 0 {
-		ret += "\n"
-	} else {
+	var c int
+	maxPerLine := 5
+
+	ret := "*************** PORT RESULT **********************\n"
+	if len(p.Open) > 0 {
+		c = 0
+		ret += "Open TCP Ports:\n\t"
 		for _, oP := range p.Open {
-			ret += fmt.Sprintf("[+] %s\n", oP)
+			c++
+			if c == len(p.Open) {
+				ret += fmt.Sprintf("[+] %s\n", oP)
+			} else if c%maxPerLine == 0 {
+				ret += fmt.Sprintf("[+] %s\n\t", oP)
+			} else {
+				ret += fmt.Sprintf("[+] %-16s", oP)
+			}
 		}
 	}
-	ret += "Closed TCP Ports:\n"
-	if len(p.Closed) == 0 {
-		ret += "\n"
-	} else {
+	if len(p.Closed) > 0 {
+		c = 0
+		ret += "Closed TCP Ports:\n\t"
 		for _, cP := range p.Closed {
-			ret += fmt.Sprintf("[-] %s\n", cP)
+			c++
+			if c == len(p.Closed) {
+				ret += fmt.Sprintf("[-] %s\n", cP)
+			} else if c%maxPerLine == 0 {
+				ret += fmt.Sprintf("[-] %s\n\t", cP)
+			} else {
+				ret += fmt.Sprintf("[-] %-16s", cP)
+			}
+		}
+	}
+	if len(p.Filtered) > 0 {
+		c = 0
+		ret += "Offline or filtered TCP Ports:\n\t"
+		for _, fP := range p.Filtered {
+			c++
+			if c == len(p.Filtered) {
+				ret += fmt.Sprintf("[?] %s\n", fP)
+			} else if c%maxPerLine == 0 {
+				ret += fmt.Sprintf("[?] %s\n\t", fP)
+			} else {
+				ret += fmt.Sprintf("[?] %-16s", fP)
+			}
 		}
 	}
 	ret += "**************************************************"

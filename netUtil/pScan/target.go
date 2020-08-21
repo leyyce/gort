@@ -11,15 +11,24 @@ type Targets []*Target
 
 type HostName string
 
+type TargetStatus int
+
+const (
+	Online TargetStatus = iota + 1
+	OfflineFiltered
+	Unknown
+)
+
 type Target struct {
 	HostName      HostName
 	IPAddr        net.IP
 	InitialTarget string
+	Status        TargetStatus
 	Ports         netUtil.Ports
 }
 
 func NewTarget(t string, ports netUtil.Ports) *Target {
-	h := &Target{InitialTarget: t, Ports: ports}
+	h := &Target{InitialTarget: t, Ports: ports, Status: Unknown}
 	h.Resolve()
 	return h
 }
@@ -46,6 +55,7 @@ func (t *Target) Resolve() {
 			}
 		} else {
 			t.IPAddr = nil
+			t.Status = OfflineFiltered
 		}
 	}
 }
@@ -54,7 +64,21 @@ func (t *Target) String() string {
 	return fmt.Sprintf(""+
 		"~~~~~~~~~~~~~~~ TARGET INFO ~~~~~~~~~~~~~~~~~~~~~~\n"+
 		"Target: %s | IP: %s | Hostname: %s\n"+
+		"Status: %s\n"+
 		"Ports:\n%s\n"+
 		"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
-		t.InitialTarget, t.IPAddr, t.HostName, t.Ports.Preview())
+		t.InitialTarget, t.IPAddr, t.HostName,
+		t.Status,
+		t.Ports.Preview())
+}
+
+func (ts TargetStatus) String() string {
+	if ts == Online {
+		return "ONLINE"
+	} else if ts == OfflineFiltered {
+		return "OFFLINE / FILTERED"
+	} else if ts == Unknown {
+		return "UNKNOWN"
+	}
+	return "N/A"
 }

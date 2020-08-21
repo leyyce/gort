@@ -10,6 +10,7 @@ type Port struct {
 }
 
 func NewPort(portNo uint16, proto string) *Port {
+	// TODO Validate port with helper function
 	return &Port{PortNo: portNo, Protocol: proto}
 }
 
@@ -29,9 +30,9 @@ func (ps Ports) String() string {
 }
 
 func (ps Ports) Preview() string {
-	max := 30
+	maxPerLine := 30
 	ret := ""
-	if len(ps) < max {
+	if len(ps) < maxPerLine {
 		for i, p := range ps {
 			ret += p.String() + ", "
 			if i != 0 && i%10 == 0 && i+1 != len(ps) {
@@ -40,7 +41,7 @@ func (ps Ports) Preview() string {
 		}
 		ret = ret[:len(ret)-2]
 	} else {
-		for i, p := range ps[:max] {
+		for i, p := range ps[:maxPerLine] {
 			if i != 0 && i%10 == 0 && i+1 != len(ps) {
 				ret += "\n"
 			}
