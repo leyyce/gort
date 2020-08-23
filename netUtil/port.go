@@ -5,17 +5,21 @@ import "fmt"
 type Ports []*Port
 
 type Port struct {
-	PortNo   uint16
-	Protocol string
+	PortNo      uint16
+	Protocol    string
+	Service     string
+	Description string
 }
 
-func NewPort(portNo uint16, proto string) *Port {
-	// TODO Validate port with helper function
-	return &Port{PortNo: portNo, Protocol: proto}
+func NewPort(portNo uint16, proto string, service string, desc string) *Port {
+	return &Port{PortNo: portNo, Protocol: proto, Service: service, Description: desc}
 }
 
 func (p *Port) String() string {
-	return fmt.Sprintf("%d/%s", p.PortNo, p.Protocol)
+	if p.Service == "" || p.Service == "N/A" {
+		return fmt.Sprintf("%5d/%s", p.PortNo, p.Protocol)
+	}
+	return fmt.Sprintf("%5d/%s [%s]", p.PortNo, p.Protocol, p.Service)
 }
 
 func (ps Ports) String() string {

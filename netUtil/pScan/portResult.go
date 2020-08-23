@@ -3,6 +3,7 @@ package pScan
 import (
 	"fmt"
 	"github.com/ElCap1tan/gort/netUtil"
+	"strings"
 )
 
 type PortResults struct {
@@ -15,6 +16,31 @@ func NewPortResults() *PortResults {
 	return &PortResults{}
 }
 
+func (p *PortResults) String() string {
+	ret := "*************** PORT RESULT **********************\n"
+	if len(p.Open) > 0 {
+		ret += "Open TCP Ports:\n"
+		for _, oP := range p.Open {
+			ret += fmt.Sprintf("[+] %s - %s\n", oP, strings.Replace(oP.Description, "\n", " ", -1))
+		}
+	}
+	if len(p.Closed) > 0 {
+		ret += "Closed TCP Ports:\n"
+		for _, cP := range p.Closed {
+			ret += fmt.Sprintf("[-] %s - %s\n", cP, strings.Replace(cP.Description, "\n", " ", -1))
+		}
+	}
+	if len(p.Filtered) > 0 {
+		ret += "Offline or filtered TCP Ports:\n"
+		for _, fP := range p.Filtered {
+			ret += fmt.Sprintf("[?] %s - %s\n", fP, strings.Replace(fP.Description, "\n", " ", -1))
+		}
+	}
+	ret += "**************************************************"
+	return ret
+}
+
+/*
 func (p *PortResults) String() string {
 	var c int
 	maxPerLine := 5
@@ -65,3 +91,4 @@ func (p *PortResults) String() string {
 	ret += "**************************************************"
 	return ret
 }
+*/
