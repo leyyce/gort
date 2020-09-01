@@ -2,6 +2,7 @@ package pScan
 
 import (
 	"fmt"
+	"github.com/ElCap1tan/gort/internal/colorFmt"
 	"github.com/ElCap1tan/gort/internal/helper"
 	"github.com/ElCap1tan/gort/netUtil"
 	"net"
@@ -72,6 +73,18 @@ func (t *Target) String() string {
 		t.Ports.Preview())
 }
 
+func (t *Target) ColorString() string {
+	return fmt.Sprintf(""+
+		"~~~~~~~~~~~~~~~ TARGET INFO ~~~~~~~~~~~~~~~~~~~~~~\n"+
+		"Target: %s | IP: %s | Hostname: %s\n"+
+		"Status: %s\n"+
+		"Ports:\n%s\n"+
+		"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+		t.InitialTarget, t.IPAddr, t.HostName,
+		t.Status.ColorString(),
+		t.Ports.Preview())
+}
+
 func (ts TargetStatus) String() string {
 	if ts == Online {
 		return "ONLINE"
@@ -79,6 +92,17 @@ func (ts TargetStatus) String() string {
 		return "OFFLINE / FILTERED"
 	} else if ts == Unknown {
 		return "UNKNOWN"
+	}
+	return "N/A"
+}
+
+func (ts TargetStatus) ColorString() string {
+	if ts == Online {
+		return colorFmt.Sopenf("ONLINE")
+	} else if ts == OfflineFiltered {
+		return colorFmt.Sclosedf("OFFLINE / FILTERED")
+	} else if ts == Unknown {
+		return colorFmt.Sfilteredf("UNKNOWN")
 	}
 	return "N/A"
 }

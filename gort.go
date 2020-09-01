@@ -3,10 +3,14 @@ package main
 import (
 	"fmt"
 	"github.com/ElCap1tan/gort/internal/argParser"
+	"github.com/ElCap1tan/gort/internal/colorFmt"
 	"github.com/ElCap1tan/gort/internal/csvParser"
+	"github.com/ElCap1tan/gort/internal/symbols"
+	"github.com/fatih/color"
 	"io"
 	"net/http"
 	"os"
+	"runtime"
 	"strconv"
 	"time"
 )
@@ -20,15 +24,15 @@ func main() {
 	// Try to update port-numbers.xml and port_open_freq.csv if necessary
 	err := updateKnownPorts(5)
 	if err != nil {
-		println("[!] Error while updating list of known ports. Using old list...")
+		colorFmt.Warnf("%s Error while updating list of known ports. Using old list...\n", symbols.INFO)
 	}
 	err = updatePortFreq(5)
 	if err != nil {
-		println("[!] Error while updating list of most common open ports. Using old list...")
+		colorFmt.Warnf("%s Error while updating list of most common open ports. Using old list...\n", symbols.INFO)
 	}
 
 	if len(args) == 2 {
-		fmt.Println("[!] No port arguments provided assuming 100 most common open ports...")
+		colorFmt.Infof("%s No port arguments provided assuming 100 most common open ports...\n", symbols.INFO)
 		hostArgs = args[1]
 		mostScanned := csvParser.NewMostScannedPorts()
 		var i int
@@ -46,15 +50,23 @@ func main() {
 		hostArgs = args[1]
 		portArgs = args[2]
 	} else {
-		fmt.Printf("[ERROR] Called with the wrong number of arguments: Provided|Needed [%d]|[1-2]", len(args)-1)
+		colorFmt.Fatalf("%s Called with the wrong number of arguments: Provided|Needed [%d]|[1-2]\n", symbols.FAILURE, len(args)-1)
 		return
 	}
 
 	targets := argParser.ParseHostArgs(hostArgs, argParser.ParsePortArgs(portArgs, "tcp"))
-	fmt.Println("[!] STARTING SCAN")
+	colorFmt.Infof("[!] STARTING SCAN\n")
 	multiScanRes := targets.Scan()
 	tFinished := time.Now()
-	fmt.Println(multiScanRes.String())
+	if runtime.GOOS == "windows" {
+		_, err = color.Output.Write([]byte(multiScanRes.ColorString()))
+		if err != nil {
+			colorFmt.Infof("Error writing colored scan result to the console. Trying uncolored...")
+			fmt.Println(multiScanRes.String())
+		}
+	} else {
+		fmt.Println(multiScanRes.ColorString())
+	}
 	file, err := os.Create(fmt.Sprintf(
 		"scanlog_%d-%02d-%02d_%02d-%02d-%02d.txt",
 		tFinished.Year(), tFinished.Month(), tFinished.Day(),
@@ -72,13 +84,13 @@ func updateKnownPorts(maxAgeDays int) error {
 	url := "https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xml"
 	pnStats, err := os.Stat(pnPath)
 	if err != nil {
-		fmt.Printf("[!] Known ports list under %s not found. Trying to download it from %s...\n", pnPath, url)
+		colorFmt.Warnf("%s Known ports list under %s not found. Trying to download it from %s...\n", symbols.INFO, pnPath, url)
 		err = fetchFile(url, pnPath)
 		return err
 	}
 	lastModTime := pnStats.ModTime()
 	if lastModTime.Add(time.Hour * 24 * time.Duration(maxAgeDays)).Before(time.Now()) {
-		fmt.Printf("[!] List of known ports not updated since %d days. Trying to update now...\n", maxAgeDays)
+		colorFmt.Infof("%s List of known ports not updated since %d days. Trying to update now...\n", symbols.INFO, maxAgeDays)
 		err = fetchFile(url, pnPath)
 		return err
 	}
@@ -90,13 +102,13 @@ func updatePortFreq(maxAgeDays int) error {
 	url := "https://docs.google.com/spreadsheets/d/1r_IriqmkTNPSTiUwii_hQ8Gwl2tfTUz8AGIOIL-wMIE/export?format=csv"
 	pnStats, err := os.Stat(pfPath)
 	if err != nil {
-		fmt.Printf("[!] Most common open ports list under %s not found. Trying to download it from %s...\n", pfPath, url)
+		colorFmt.Warnf("%s Most common open ports list under %s not found. Trying to download it from %s...\n", symbols.INFO, pfPath, url)
 		err = fetchFile(url, pfPath)
 		return err
 	}
 	lastModTime := pnStats.ModTime()
 	if lastModTime.Add(time.Hour * 24 * time.Duration(maxAgeDays)).Before(time.Now()) {
-		fmt.Printf("[!] List of most common open ports not updated since %d days. Trying to update now...\n", maxAgeDays)
+		colorFmt.Infof("%s List of most common open ports not updated since %d days. Trying to update now...\n", symbols.INFO, maxAgeDays)
 		err = fetchFile(url, pfPath)
 		return err
 	}
@@ -116,7 +128,7 @@ func fetchFile(url, filePath string) error {
 	defer resp.Body.Close()
 	_, err = io.Copy(file, resp.Body)
 	if err == nil {
-		fmt.Println("[🗸] Success!")
+		colorFmt.Successf("%s Success!\n", symbols.SUCCESS)
 	}
 	return err
 }

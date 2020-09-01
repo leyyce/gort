@@ -69,13 +69,15 @@ func (t *Target) scanPort(p *netUtil.Port, ch chan *PortResults) {
 		return
 	} else if _, ok := err.(*net.OpError); ok {
 		if t.Status == Unknown || t.Status == OfflineFiltered {
-			if strings.HasSuffix(err.Error(), "No connection could be made because the target machine actively refused it.") {
+			if strings.HasSuffix(err.Error(), "No connection could be made because the target machine actively refused it.") ||
+				strings.HasSuffix(err.Error(), "connect: connection refused") {
 				t.Status = Online
 			} else if strings.HasSuffix(err.Error(), "i/o timeout") && t.Status == Unknown {
 				t.Status = OfflineFiltered
 			}
 		}
-		if strings.HasSuffix(err.Error(), "No connection could be made because the target machine actively refused it.") {
+		if strings.HasSuffix(err.Error(), "No connection could be made because the target machine actively refused it.") ||
+			strings.HasSuffix(err.Error(), "connect: connection refused") {
 			res.Closed = append(res.Closed, p)
 		}
 		if strings.HasSuffix(err.Error(), "i/o timeout") {
