@@ -174,6 +174,15 @@ func (t *Target) ColorString() string {
 		mac = colorFmt.Ssuccessf(t.MACAddr.String())
 	}
 
+	var vendor string
+	if t.Location == Local && t.Vendor != "" && t.Vendor != "N/A" {
+		vendor = colorFmt.Ssuccessf(t.Vendor)
+	} else if t.Location == Local {
+		vendor = colorFmt.Sfatalf(t.Vendor)
+	} else if  t.Location == Global {
+		vendor = colorFmt.Ssuccessf("N/A")
+	}
+
 	return fmt.Sprintf(""+
 		"~~~~~~~~~~~~~~~ TARGET INFO ~~~~~~~~~~~~~~~~~~~~~~\n"+
 		"Target: %s | IP: %s | Hostname: %s\n"+
@@ -184,7 +193,7 @@ func (t *Target) ColorString() string {
 		"Ports:\n%s\n"+
 		"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
 		t.InitialTarget, t.IPAddr, t.HostName,
-		t.Vendor,
+		vendor,
 		mac,
 		t.Location.ColorString(),
 		t.Status.ColorString(),

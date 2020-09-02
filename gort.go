@@ -11,10 +11,13 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"runtime"
 	"strconv"
 	"time"
 )
+
+const dataFolder, resultFolder = "data", "scans"
 
 func main() {
 	var hostArgs string
@@ -23,7 +26,12 @@ func main() {
 	args := os.Args
 
 	// Try to update port-numbers.xml and port_open_freq.csv if necessary
-	err := updateKnownPorts(5)
+	err := ensureDir(dataFolder)
+	if err != nil {
+		colorFmt.Fatalf("%s Error creating data dir '%s': %s", symbols.FAILURE, dataFolder, err.Error())
+		return
+	}
+	err = updateKnownPorts(5)
 	if err != nil {
 		colorFmt.Warnf("%s Error while updating list of known ports. Using old list...\n", symbols.INFO)
 	}
@@ -82,21 +90,38 @@ func main() {
 	fileName := fmt.Sprintf("scanlog_%d-%02d-%02d_%02d-%02d-%02d.txt",
 		tFinished.Year(), tFinished.Month(), tFinished.Day(),
 		tFinished.Hour(), tFinished.Minute(), tFinished.Second())
-	file, err := os.Create(fileName)
-	if err == nil {
-		_, err = file.WriteString(multiScanRes.String())
-		if err != nil {
-			println(err.Error())
+	err = ensureDir(resultFolder)
+	if err != nil {
+		colorFmt.Warnf("%s Failed to create results dir under '%s'. Trying to save in the current working directory.", symbols.INFO, resultFolder)
+		file, err := os.Create(fileName)
+		if err == nil {
+			_, err = file.WriteString(multiScanRes.String())
+			if err != nil {
+				println(err.Error())
+			} else {
+				colorFmt.Infof("%s Scan result saved as '%s'\n\n", symbols.INFO, fileName)
+			}
 		} else {
-			colorFmt.Infof("%s Scan result saved as %s\n\n", symbols.INFO, fileName)
+			println(err.Error())
 		}
 	} else {
-		println(err.Error())
+		filePath := path.Join(resultFolder, fileName)
+		file, err := os.Create(filePath)
+		if err == nil {
+			_, err = file.WriteString(multiScanRes.String())
+			if err != nil {
+				println(err.Error())
+			} else {
+				colorFmt.Infof("%s Scan result saved as '%s'\n\n", symbols.INFO, filePath)
+			}
+		} else {
+			println(err.Error())
+		}
 	}
 }
 
 func updateKnownPorts(maxAgeDays int) error {
-	pnPath := "data/port-numbers.xml"
+	pnPath := path.Join(dataFolder, "port-numbers.xml")
 	url := "https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xml"
 	pnStats, err := os.Stat(pnPath)
 	if err != nil {
@@ -114,7 +139,7 @@ func updateKnownPorts(maxAgeDays int) error {
 }
 
 func updatePortFreq(maxAgeDays int) error {
-	pfPath := "data/port_open_freq.csv"
+	pfPath := path.Join(dataFolder, "port_open_freq.csv")
 	url := "https://docs.google.com/spreadsheets/d/1r_IriqmkTNPSTiUwii_hQ8Gwl2tfTUz8AGIOIL-wMIE/export?format=csv"
 	pnStats, err := os.Stat(pfPath)
 	if err != nil {
@@ -145,6 +170,15 @@ func fetchFile(url, filePath string) error {
 	_, err = io.Copy(file, resp.Body)
 	if err == nil {
 		colorFmt.Successf("%s Success!\n", symbols.SUCCESS)
+	}
+	return err
+}
+
+func ensureDir(dirName string) error {
+	err := os.MkdirAll(dirName, os.ModeDir)
+
+	if err == nil || os.IsExist(err) {
+		return nil
 	}
 	return err
 }
