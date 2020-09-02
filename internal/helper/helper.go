@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"net"
 	"strconv"
 	"strings"
 )
@@ -54,4 +55,13 @@ func ValidatePort(port string) bool {
 		return false
 	}
 	return true
+}
+
+func IncIp(ip net.IP) {
+	for j := len(ip) - 1; j >= 0; j-- {
+		ip[j]++
+		if ip[j] > 0 {
+			break
+		}
+	}
 }

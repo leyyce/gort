@@ -6,6 +6,7 @@ import (
 	"github.com/ElCap1tan/gort/internal/colorFmt"
 	"github.com/ElCap1tan/gort/internal/csvParser"
 	"github.com/ElCap1tan/gort/internal/symbols"
+	"github.com/ElCap1tan/gort/netUtil/pScan"
 	"github.com/fatih/color"
 	"io"
 	"net/http"
@@ -54,28 +55,43 @@ func main() {
 		return
 	}
 
+	colorFmt.Infof("%s Parsing and resolving host arguments...\n", symbols.INFO)
 	targets := argParser.ParseHostArgs(hostArgs, argParser.ParsePortArgs(portArgs, "tcp"))
-	colorFmt.Infof("[!] STARTING SCAN\n")
+	colorFmt.Infof("%s STARTING SCAN...\n", symbols.INFO)
 	multiScanRes := targets.Scan()
 	tFinished := time.Now()
 	if runtime.GOOS == "windows" {
-		_, err = color.Output.Write([]byte(multiScanRes.ColorString()))
-		if err != nil {
-			colorFmt.Infof("Error writing colored scan result to the console. Trying uncolored...")
-			fmt.Println(multiScanRes.String())
+		// _, err = color.Output.Write([]byte(multiScanRes.ColorString()))
+		for _, res := range multiScanRes.Resolved {
+			if res.Target.Status == pScan.Online {
+				_, err = color.Output.Write([]byte(res.ColorString() + "\n"))
+			}
+			if err != nil {
+				colorFmt.Infof("Error writing colored scan result to the console. Trying uncolored...")
+				fmt.Println(multiScanRes.String())
+			}
 		}
 	} else {
-		fmt.Println(multiScanRes.ColorString())
+		// fmt.Println(multiScanRes.ColorString())
+		for _, res := range multiScanRes.Resolved {
+			if res.Target.Status == pScan.Online {
+				fmt.Println(res.ColorString())
+			}
+		}
 	}
-	file, err := os.Create(fmt.Sprintf(
-		"scanlog_%d-%02d-%02d_%02d-%02d-%02d.txt",
+	fileName := fmt.Sprintf("scanlog_%d-%02d-%02d_%02d-%02d-%02d.txt",
 		tFinished.Year(), tFinished.Month(), tFinished.Day(),
-		tFinished.Hour(), tFinished.Minute(), tFinished.Second()))
+		tFinished.Hour(), tFinished.Minute(), tFinished.Second())
+	file, err := os.Create(fileName)
 	if err == nil {
 		_, err = file.WriteString(multiScanRes.String())
 		if err != nil {
 			println(err.Error())
+		} else {
+			colorFmt.Infof("%s Scan result saved as %s\n\n", symbols.INFO, fileName)
 		}
+	} else {
+		println(err.Error())
 	}
 }
 

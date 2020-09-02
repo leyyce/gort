@@ -5,6 +5,7 @@ import (
 	"github.com/ElCap1tan/gort/internal/helper"
 	"github.com/ElCap1tan/gort/netUtil"
 	"github.com/ElCap1tan/gort/netUtil/pScan"
+	"net"
 	"strconv"
 	"strings"
 )
@@ -13,7 +14,11 @@ func ParseHostArgs(hostArgs string, ports netUtil.Ports) pScan.Targets {
 	var tgtHosts pScan.Targets
 	hosts := strings.Split(hostArgs, ",")
 	for _, hostArg := range hosts {
-		if helper.ValidateIPOrRange(hostArg) {
+		if ip, ipNet, err := net.ParseCIDR(hostArg); err == nil {
+			for ip := ip.Mask(ipNet.Mask); ipNet.Contains(ip); helper.IncIp(ip) {
+				tgtHosts = append(tgtHosts, pScan.NewTarget(ip.String(), ports))
+			}
+		} else if helper.ValidateIPOrRange(hostArg) {
 			if strings.Contains(hostArg, "-") {
 				addrParts := strings.Split(hostArg, ".")
 				var octets [4][]int
