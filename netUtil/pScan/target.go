@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"github.com/ElCap1tan/gort/internal/colorFmt"
 	"github.com/ElCap1tan/gort/internal/helper"
+	"github.com/ElCap1tan/gort/internal/symbols"
 	"github.com/ElCap1tan/gort/netUtil"
 	"github.com/ElCap1tan/gort/netUtil/macLookup"
 	"github.com/mdlayher/arp"
 	quickArp "github.com/mostlygeek/arp"
 	"net"
 	"runtime"
+	"strings"
+	"time"
 )
 
 type Targets []*Target
@@ -80,7 +83,12 @@ func (t *Target) Resolve() {
 }
 
 func (t *Target) QueryMac() {
-	if macAddr, err := net.ParseMAC(quickArp.Search(t.IPAddr.String())); err == nil {
+	if b, err := t.IsHost(); b == true && err == nil {
+		return
+	}
+	if macAddr, err := net.ParseMAC(quickArp.Search(t.IPAddr.String())); err == nil && macAddr.String() != "00:00:00:00:00:00" {
+		colorFmt.Infof("%s Found MAC address for target '%s' via arp cache lookup: %s\n",
+			symbols.INFO, t.InitialTarget, macAddr.String())
 		t.Location = Local
 		t.MACAddr = macAddr
 		return
@@ -102,12 +110,20 @@ func (t *Target) QueryMac() {
 				if ipNet.Contains(t.IPAddr) {
 					t.Location = Local
 					if arpCli, err := arp.Dial(&inf); err == nil {
-						hwAddr, err := arpCli.Resolve(t.IPAddr)
+						err = arpCli.SetReadDeadline(time.Now().Add(time.Second))
 						if err != nil {
+							colorFmt.Warnf("%s %s: Error setting read timeout for arp request. Skipping mac lookup...\n",
+								symbols.INFO, t.IPAddr.String())
 							t.MACAddr = nil
 							return
 						}
-						fmt.Println(hwAddr.String())
+						hwAddr, err := arpCli.Resolve(t.IPAddr)
+						if err != nil || hwAddr.String() == "00:00:00:00:00:00" {
+							t.MACAddr = nil
+							return
+						}
+						colorFmt.Infof("%s Found MAC address for Target '%s' via arp request: %s\n",
+							symbols.INFO, t.InitialTarget, hwAddr.String())
 						t.MACAddr = hwAddr
 						t.Status = Online
 						return
@@ -135,6 +151,41 @@ func (t *Target) LookUpVendor() {
 		return
 	}
 	t.Vendor = "N/A"
+}
+
+func (t *Target) IsHost() (bool, error) {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return false, err
+	}
+	for _, inf := range interfaces {
+		infAddresses, err := inf.Addrs()
+		if err != nil {
+			continue
+		}
+
+		// Check if target ip is the host
+		for _, addr := range infAddresses {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPAddr:
+				ip = v.IP
+				if t.IPAddr.Equal(ip) {
+					t.Location = Local
+					t.MACAddr = inf.HardwareAddr
+					return true, nil
+				}
+			case *net.IPNet:
+				ip = net.ParseIP(strings.Split(v.IP.String(), ":")[0])
+				if t.IPAddr.Equal(ip) {
+					t.Location = Local
+					t.MACAddr = inf.HardwareAddr
+					return true, nil
+				}
+			}
+		}
+	}
+	return false, nil
 }
 
 func (t *Target) String() string {
@@ -178,8 +229,8 @@ func (t *Target) ColorString() string {
 	if t.Location == Local && t.Vendor != "" && t.Vendor != "N/A" {
 		vendor = colorFmt.Ssuccessf(t.Vendor)
 	} else if t.Location == Local {
-		vendor = colorFmt.Sfatalf(t.Vendor)
-	} else if  t.Location == Global {
+		vendor = colorFmt.Sfatalf("N/A")
+	} else if t.Location == Global {
 		vendor = colorFmt.Ssuccessf("N/A")
 	}
 
