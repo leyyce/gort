@@ -175,8 +175,7 @@ func fetchFile(url, filePath string) error {
 }
 
 func ensureDir(dirName string) error {
-	err := os.MkdirAll(dirName, os.ModeDir)
-
+	err := os.MkdirAll(dirName, 0766)
 	if err == nil || os.IsExist(err) {
 		return nil
 	}

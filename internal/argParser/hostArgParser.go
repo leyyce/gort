@@ -3,8 +3,10 @@ package argParser
 import (
 	"fmt"
 	"github.com/ElCap1tan/gort/internal/helper"
+	"github.com/ElCap1tan/gort/internal/helper/ulimit"
 	"github.com/ElCap1tan/gort/netUtil"
 	"github.com/ElCap1tan/gort/netUtil/pScan"
+	"golang.org/x/sync/semaphore"
 	"net"
 	"strconv"
 	"strings"
@@ -12,11 +14,25 @@ import (
 
 func ParseHostArgs(hostArgs string, ports netUtil.Ports) pScan.Targets {
 	var tgtHosts pScan.Targets
+	hostCount := 0
+	out := make(chan *pScan.Target)
+
+	var limit int64
+	l, err := ulimit.GetUlimit()
+	if err != nil {
+		limit = 1024
+	} else {
+		limit = int64(l)
+	}
+
+	lock := semaphore.NewWeighted(limit)
+
 	hosts := strings.Split(hostArgs, ",")
 	for _, hostArg := range hosts {
 		if ip, ipNet, err := net.ParseCIDR(hostArg); err == nil {
 			for ip := ip.Mask(ipNet.Mask); ipNet.Contains(ip); helper.IncIp(ip) {
-				tgtHosts = append(tgtHosts, pScan.NewTarget(ip.String(), ports))
+				go pScan.AsyncNewTarget(ip.String(), ports, out, lock)
+				hostCount++
 			}
 		} else if helper.ValidateIPOrRange(hostArg) {
 			if strings.Contains(hostArg, "-") {
@@ -31,14 +47,20 @@ func ParseHostArgs(hostArgs string, ports netUtil.Ports) pScan.Targets {
 					}
 				}
 				for _, t := range octetsToTargets(octets) {
-					tgtHosts = append(tgtHosts, pScan.NewTarget(t, ports))
+					go pScan.AsyncNewTarget(t, ports, out, lock)
+					hostCount++
 				}
 			} else {
-				tgtHosts = append(tgtHosts, pScan.NewTarget(hostArg, ports))
+				go pScan.AsyncNewTarget(hostArg, ports, out, lock)
+				hostCount++
 			}
 		} else {
-			tgtHosts = append(tgtHosts, pScan.NewTarget(hostArg, ports))
+			go pScan.AsyncNewTarget(hostArg, ports, out, lock)
+			hostCount++
 		}
+	}
+	for i := 1; i <= hostCount; i++ {
+		tgtHosts = append(tgtHosts, <-out)
 	}
 	return tgtHosts
 }

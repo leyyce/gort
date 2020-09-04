@@ -1,6 +1,7 @@
 package pScan
 
 import (
+	"context"
 	"fmt"
 	"github.com/ElCap1tan/gort/internal/colorFmt"
 	"github.com/ElCap1tan/gort/internal/helper"
@@ -9,6 +10,7 @@ import (
 	"github.com/ElCap1tan/gort/netUtil/macLookup"
 	"github.com/mdlayher/arp"
 	quickArp "github.com/mostlygeek/arp"
+	"golang.org/x/sync/semaphore"
 	"net"
 	"runtime"
 	"strings"
@@ -53,6 +55,22 @@ func NewTarget(t string, ports netUtil.Ports) *Target {
 		h.Location = UnknownLoc
 	}
 	return h
+}
+
+func AsyncNewTarget(t string, ports netUtil.Ports, ch chan *Target, scanLock *semaphore.Weighted) {
+	// TODO Add writeMutex
+	scanLock.Acquire(context.TODO(), 3)
+	h := &Target{InitialTarget: t, Ports: ports, Status: Unknown}
+	h.Resolve()
+	if h.IPAddr != nil {
+		h.QueryMac()
+		h.LookUpVendor()
+	} else {
+		h.MACAddr = nil
+		h.Location = UnknownLoc
+	}
+	scanLock.Release(3)
+	ch <- h
 }
 
 func (t *Target) Resolve() {
@@ -110,22 +128,25 @@ func (t *Target) QueryMac() {
 				if ipNet.Contains(t.IPAddr) {
 					t.Location = Local
 					if arpCli, err := arp.Dial(&inf); err == nil {
-						err = arpCli.SetReadDeadline(time.Now().Add(time.Second))
+						err = arpCli.SetReadDeadline(time.Now().Add(time.Millisecond * time.Duration(500)))
 						if err != nil {
 							colorFmt.Warnf("%s %s: Error setting read timeout for arp request. Skipping mac lookup...\n",
 								symbols.INFO, t.IPAddr.String())
 							t.MACAddr = nil
+							_ = arpCli.Close()
 							return
 						}
 						hwAddr, err := arpCli.Resolve(t.IPAddr)
 						if err != nil || hwAddr.String() == "00:00:00:00:00:00" {
 							t.MACAddr = nil
+							_ = arpCli.Close()
 							return
 						}
-						colorFmt.Infof("%s Found MAC address for Target '%s' via arp request: %s\n",
+						colorFmt.Infof("%s Found MAC address for target '%s' via arp request: %s\n",
 							symbols.INFO, t.InitialTarget, hwAddr.String())
 						t.MACAddr = hwAddr
 						t.Status = Online
+						_ = arpCli.Close()
 						return
 					} else {
 						t.MACAddr = nil
