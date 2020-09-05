@@ -65,7 +65,7 @@ func NewMostCommonPorts() *MostCommonPorts {
 	return &commonPorts
 }
 
-func (ports *MostCommonPorts) GetMostScannedString(n int) string {
+func (ports *MostCommonPorts) GetMostCommonString(n int) string {
 	var i int
 	var str string
 	for _, mS := range *ports {

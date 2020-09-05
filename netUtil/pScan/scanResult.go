@@ -47,6 +47,19 @@ func (s *ScanResult) ColorString() string {
 		s.Ports.ColorString())
 }
 
+func (s *ScanResult) CustomColorString(showClosed bool) string {
+	return fmt.Sprintf(""+
+		"=============== SCAN RESULT ================================\n\n"+
+		"Scan started  @ %s\n"+
+		"Scan finished @ %s\n"+
+		"%s\n"+
+		"%s\n\n"+
+		"============================================================",
+		s.StartTime.Format(time.RFC1123), s.EndTime.Format(time.RFC1123),
+		s.Target.ColorString(),
+		s.Ports.CustomColorString(showClosed))
+}
+
 func (m *MultiScanResult) String() string {
 	ret := "" +
 		"#################################################################\n" +
@@ -92,6 +105,39 @@ func (m *MultiScanResult) ColorString() string {
 	}
 	for _, target := range m.Unresolved {
 		ret += target.ColorString() + "\n\n"
+	}
+	ret += "\n#################################################################"
+	return ret
+}
+
+func (m *MultiScanResult) CustomColorString(onlineOnly, showClosed bool) string {
+	ret := "" +
+		"#################################################################\n" +
+		"############### MULTI SCAN RESULT ###############################\n" +
+		"#################################################################\n\n"
+	if len(m.Resolved) == 0 {
+		ret += "\tNONE\n"
+	}
+	for _, scanResult := range m.Resolved {
+		if onlineOnly {
+			if scanResult.Target.Status == Online {
+				ret += scanResult.CustomColorString(showClosed) + "\n\n"
+			}
+		} else {
+			ret += scanResult.CustomColorString(showClosed) + "\n\n"
+		}
+	}
+	if !onlineOnly {
+		ret += "\n" +
+			"#################################################################\n" +
+			"############### UNRESOLVED ######################################\n" +
+			"#################################################################\n\n"
+		if len(m.Unresolved) == 0 {
+			ret += "\tNONE\n"
+		}
+		for _, target := range m.Unresolved {
+			ret += target.ColorString() + "\n\n"
+		}
 	}
 	ret += "\n#################################################################"
 	return ret

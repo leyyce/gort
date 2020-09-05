@@ -90,6 +90,44 @@ func (p *PortResults) ColorString() string {
 	return ret
 }
 
+func (p *PortResults) CustomColorString(showClosed bool) string {
+	ret := "*************** PORT RESULT **********************\n"
+	if len(p.Open) > 0 {
+		ret += "Open TCP Ports:\n"
+		for _, oP := range p.Open {
+			if oP.Description == "" {
+				ret += colorFmt.Sopenf("\t%s %s\n", symbols.OPEN, oP)
+			} else {
+				ret += colorFmt.Sopenf("\t%s %s - %s\n", symbols.OPEN, oP, strings.Replace(oP.Description, "\n", " ", -1))
+			}
+		}
+	}
+	if showClosed {
+		if len(p.Closed) > 0 {
+			ret += "Closed TCP Ports:\n"
+			for _, cP := range p.Closed {
+				if cP.Description == "" {
+					ret += colorFmt.Sclosedf("\t%s %s\n", symbols.CLOSED, cP)
+				} else {
+					ret += colorFmt.Sclosedf("\t%s %s - %s\n", symbols.CLOSED, cP, strings.Replace(cP.Description, "\n", " ", -1))
+				}
+			}
+		}
+		if len(p.Filtered) > 0 {
+			ret += "Offline or filtered TCP Ports:\n"
+			for _, fP := range p.Filtered {
+				if fP.Description == "" {
+					ret += colorFmt.Sfilteredf("\t%s %s\n", symbols.UNKNOWN, fP)
+				} else {
+					ret += colorFmt.Sfilteredf("\t%s %s - %s\n", symbols.UNKNOWN, fP, strings.Replace(fP.Description, "\n", " ", -1))
+				}
+			}
+		}
+	}
+	ret += "**************************************************"
+	return ret
+}
+
 /*
 func (p *PortResults) String() string {
 	var c int

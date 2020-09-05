@@ -7,7 +7,6 @@ import (
 	"github.com/ElCap1tan/gort/internal/colorFmt"
 	"github.com/ElCap1tan/gort/internal/csvParser"
 	"github.com/ElCap1tan/gort/internal/symbols"
-	"github.com/ElCap1tan/gort/netUtil/pScan"
 	"github.com/fatih/color"
 	"io"
 	"net/http"
@@ -22,7 +21,7 @@ const dataFolder, resultFolder = "data", "scans"
 func main() {
 	var usage = "" +
 		"Usage:\n" +
-		"\tgort [-p ports] [-mc most common count] [-online online only] [-file save to file] hosts\n" +
+		"\tgort [-p ports] [-mc count] [-closed] [-online] [-file] hosts\n" +
 		"\tMandatory argument:\n" +
 		"\thosts are comma separated values that can either be\n" +
 		"\t\tA single host : 192.88.99.1 or example.com\n" +
@@ -34,31 +33,33 @@ func main() {
 		"\t\t\t\tA single port : 80\n" +
 		"\t\t\t\tA range of ports : 80-100\n" +
 		"\t\t-mc [int]\n" +
-		"\t\t\tSets the number of most common open ports to scan. If omitted defaults to 250.\n" +
+		"\t\t\tSets the number of most common open ports to scan. If omitted defaults to 1000.\n" +
+		"\t\t-closed\n" +
+		"\t\t\tIf this flag is passed ports with closed and unknown/filtered state are also shown in the console output.\n" +
 		"\t\t-online\n" +
 		"\t\t\tIf this flag is passed only hosts confirmed as online are shown in the console output.\n" +
 		"\t\t-file\n" +
 		"\t\t\tIf this flag is passed the scan result will be saved to a file.\n" +
 		"Examples:\n" +
-		"\t# scan the 250 most common open ports of google\n" +
-		"\t\tgort google.com\n" +
-		"\t# scan the 1000 most common open ports of google\n" +
-		"\t\tgort -mc 1000 google.com\n" +
-		"\t# scan a custom list of ports for google\n" +
-		"\t\tgort -p 80,443,1000-1024 google.com\n" +
+		"\t# scan the 1000 most common open ports of example.com\n" +
+		"\t\tgort example.com\n" +
+		"\t# scan the 500 most common open ports of example.com\n" +
+		"\t\tgort -mc 500 example.com\n" +
+		"\t# scan a custom list of ports for example.com and also show closed or unknown ports in result\n" +
+		"\t\tgort -p 80,443,1000-1024 -closed example.com\n" +
 		"\t# scan the subnet 192.88.99.0/24 for the 100 most common open ports and and a custom list of ports\n" +
 		"\t# and only show targets confirmed as online in the scan result (Some ports could be scanned double).\n" +
-		"\t\tgort -mc 100 -p 10334,12012 192.88.99.0/24\n" +
+		"\t\tgort -mc 100 -p 10334,12012 -online 192.88.99.0/24\n" +
 		"\t\tor\n" +
-		"\t\tgort -mc 100 -p 10334,12012 192.88.99.0-255\n"
+		"\t\tgort -mc 100 -p 10334,12012 -online 192.88.99.0-255\n"
 	flag.Usage = func() {
 		fmt.Printf(usage)
 	}
-
 	var hostArgs string
-	mostCommonCount := flag.Int("mc", 250, "")
+	mostCommonCount := flag.Int("mc", 1000, "")
 	portArgs := flag.String("p", "", "")
-	onlineOnly := flag.Bool("online", true, "")
+	onlineOnly := flag.Bool("online", false, "")
+	showClosed := flag.Bool("closed", false, "")
 	writeFile := flag.Bool("file", false, "")
 
 	flag.Parse()
@@ -70,13 +71,26 @@ func main() {
 
 	hostArgs = flag.Arg(0)
 
-	if *portArgs == "" || *portArgs != "" && *mostCommonCount != 250 {
+	if *portArgs == "" || *portArgs != "" && *mostCommonCount != 1000 {
+		mostCommon := csvParser.NewMostCommonPorts()
+		maxAvailable := 0
+		for _, p := range *mostCommon {
+			if p.Protocol == "tcp" {
+				maxAvailable++
+			}
+		}
+
+		if *mostCommonCount > maxAvailable {
+			colorFmt.Infof("%s Can't start scan for the %d most common open ports because stats are only available for %d ports. Using that number of ports instead...\n",
+				symbols.INFO, *mostCommonCount, maxAvailable)
+			*mostCommonCount = maxAvailable
+		}
 		if *portArgs == "" {
 			colorFmt.Infof("%s No port arguments provided assuming %d most common open ports...\n", symbols.INFO, *mostCommonCount)
 		} else {
 			colorFmt.Infof("%s Adding the %d most common open ports to the provided list of port arguments...\n", symbols.INFO, *mostCommonCount)
 		}
-		p := *portArgs + csvParser.NewMostCommonPorts().GetMostScannedString(*mostCommonCount)
+		p := *portArgs + mostCommon.GetMostCommonString(*mostCommonCount)
 		portArgs = &p
 	}
 
@@ -101,33 +115,13 @@ func main() {
 	multiScanRes := targets.Scan()
 	tFinished := time.Now()
 	if runtime.GOOS == "windows" {
-		if *onlineOnly {
-			for _, res := range multiScanRes.Resolved {
-				if res.Target.Status == pScan.Online {
-					_, err = color.Output.Write([]byte(res.ColorString() + "\n"))
-				}
-				if err != nil {
-					colorFmt.Infof("Error writing colored scan result to the console. Trying uncolored...")
-					fmt.Println(res.String())
-				}
-			}
-		} else {
-			_, err = color.Output.Write([]byte(multiScanRes.ColorString()))
-			if err != nil {
-				colorFmt.Infof("Error writing colored scan result to the console. Trying uncolored...")
-				fmt.Println(multiScanRes.String())
-			}
+		_, err = color.Output.Write([]byte(multiScanRes.CustomColorString(*onlineOnly, *showClosed)))
+		if err != nil {
+			colorFmt.Infof("Error writing colored scan result to the console. Trying uncolored...")
+			fmt.Println(multiScanRes.String())
 		}
 	} else {
-		if *onlineOnly {
-			for _, res := range multiScanRes.Resolved {
-				if res.Target.Status == pScan.Online {
-					fmt.Println(res.ColorString())
-				}
-			}
-		} else {
-			fmt.Println(multiScanRes.ColorString())
-		}
+		fmt.Println(multiScanRes.CustomColorString(*onlineOnly, *showClosed))
 	}
 
 	if *writeFile {
