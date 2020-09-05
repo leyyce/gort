@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/ElCap1tan/gort/internal/argParser"
 	"github.com/ElCap1tan/gort/internal/colorFmt"
@@ -13,17 +14,71 @@ import (
 	"os"
 	"path"
 	"runtime"
-	"strconv"
 	"time"
 )
 
 const dataFolder, resultFolder = "data", "scans"
 
 func main() {
-	var hostArgs string
-	var portArgs string
+	var usage = "" +
+		"Usage:\n" +
+		"\tgort [-p ports] [-mc most common count] [-online online only] [-file save to file] hosts\n" +
+		"\tMandatory argument:\n" +
+		"\thosts are comma separated values that can either be\n" +
+		"\t\tA single host : 192.88.99.1 or example.com\n" +
+		"\t\tA range of hosts : 192.88.99.1-50 or 192.88.99-100.1-50\n" +
+		"\t\tA CIDR formatted host range : 192.88.99.1/24\n" +
+		"\tOptional arguments\n" +
+		"\t\t-p\n" +
+		"\t\t\tports are comma separated values that either can be\n" +
+		"\t\t\t\tA single port : 80\n" +
+		"\t\t\t\tA range of ports : 80-100\n" +
+		"\t\t-mc [int]\n" +
+		"\t\t\tSets the number of most common open ports to scan. If omitted defaults to 250.\n" +
+		"\t\t-online\n" +
+		"\t\t\tIf this flag is passed only hosts confirmed as online are shown in the console output.\n" +
+		"\t\t-file\n" +
+		"\t\t\tIf this flag is passed the scan result will be saved to a file.\n" +
+		"Examples:\n" +
+		"\t# scan the 250 most common open ports of google\n" +
+		"\t\tgort google.com\n" +
+		"\t# scan the 1000 most common open ports of google\n" +
+		"\t\tgort -mc 1000 google.com\n" +
+		"\t# scan a custom list of ports for google\n" +
+		"\t\tgort -p 80,443,1000-1024 google.com\n" +
+		"\t# scan the subnet 192.88.99.0/24 for the 100 most common open ports and and a custom list of ports\n" +
+		"\t# and only show targets confirmed as online in the scan result (Some ports could be scanned double).\n" +
+		"\t\tgort -mc 100 -p 10334,12012 192.88.99.0/24\n" +
+		"\t\tor\n" +
+		"\t\tgort -mc 100 -p 10334,12012 192.88.99.0-255\n"
+	flag.Usage = func() {
+		fmt.Printf(usage)
+	}
 
-	args := os.Args
+	var hostArgs string
+	mostCommonCount := flag.Int("mc", 250, "")
+	portArgs := flag.String("p", "", "")
+	onlineOnly := flag.Bool("online", true, "")
+	writeFile := flag.Bool("file", false, "")
+
+	flag.Parse()
+
+	if flag.NArg() == 0 {
+		flag.Usage()
+		return
+	}
+
+	hostArgs = flag.Arg(0)
+
+	if *portArgs == "" || *portArgs != "" && *mostCommonCount != 250 {
+		if *portArgs == "" {
+			colorFmt.Infof("%s No port arguments provided assuming %d most common open ports...\n", symbols.INFO, *mostCommonCount)
+		} else {
+			colorFmt.Infof("%s Adding the %d most common open ports to the provided list of port arguments...\n", symbols.INFO, *mostCommonCount)
+		}
+		p := *portArgs + csvParser.NewMostCommonPorts().GetMostScannedString(*mostCommonCount)
+		portArgs = &p
+	}
 
 	// Try to update port-numbers.xml and port_open_freq.csv if necessary
 	err := ensureDir(dataFolder)
@@ -40,82 +95,72 @@ func main() {
 		colorFmt.Warnf("%s Error while updating list of most common open ports. Using old list...\n", symbols.INFO)
 	}
 
-	if len(args) == 2 {
-		colorFmt.Infof("%s No port arguments provided assuming 100 most common open ports...\n", symbols.INFO)
-		hostArgs = args[1]
-		mostScanned := csvParser.NewMostScannedPorts()
-		var i int
-		for _, mS := range *mostScanned {
-			if i == 99 {
-				break
-			}
-			if mS.Protocol == "tcp" {
-				portArgs += strconv.Itoa(int(mS.Number)) + ","
-				i++
-			}
-		}
-		portArgs = portArgs[:len(portArgs)-2]
-	} else if len(args) == 3 {
-		hostArgs = args[1]
-		portArgs = args[2]
-	} else {
-		colorFmt.Fatalf("%s Called with the wrong number of arguments: Provided|Needed [%d]|[1-2]\n", symbols.FAILURE, len(args)-1)
-		return
-	}
-
 	colorFmt.Infof("%s Parsing and resolving host arguments...\n", symbols.INFO)
-	targets := argParser.ParseHostArgs(hostArgs, argParser.ParsePortArgs(portArgs, "tcp"))
+	targets := argParser.ParseHostArgs(hostArgs, argParser.ParsePortArgs(*portArgs, "tcp"))
 	colorFmt.Infof("%s STARTING SCAN...\n", symbols.INFO)
 	multiScanRes := targets.Scan()
 	tFinished := time.Now()
 	if runtime.GOOS == "windows" {
-		// _, err = color.Output.Write([]byte(multiScanRes.ColorString()))
-		for _, res := range multiScanRes.Resolved {
-			if res.Target.Status == pScan.Online {
-				_, err = color.Output.Write([]byte(res.ColorString() + "\n"))
+		if *onlineOnly {
+			for _, res := range multiScanRes.Resolved {
+				if res.Target.Status == pScan.Online {
+					_, err = color.Output.Write([]byte(res.ColorString() + "\n"))
+				}
+				if err != nil {
+					colorFmt.Infof("Error writing colored scan result to the console. Trying uncolored...")
+					fmt.Println(res.String())
+				}
 			}
+		} else {
+			_, err = color.Output.Write([]byte(multiScanRes.ColorString()))
 			if err != nil {
 				colorFmt.Infof("Error writing colored scan result to the console. Trying uncolored...")
 				fmt.Println(multiScanRes.String())
 			}
 		}
 	} else {
-		// fmt.Println(multiScanRes.ColorString())
-		for _, res := range multiScanRes.Resolved {
-			if res.Target.Status == pScan.Online {
-				fmt.Println(res.ColorString())
+		if *onlineOnly {
+			for _, res := range multiScanRes.Resolved {
+				if res.Target.Status == pScan.Online {
+					fmt.Println(res.ColorString())
+				}
 			}
+		} else {
+			fmt.Println(multiScanRes.ColorString())
 		}
 	}
-	fileName := fmt.Sprintf("scanlog_%d-%02d-%02d_%02d-%02d-%02d.txt",
-		tFinished.Year(), tFinished.Month(), tFinished.Day(),
-		tFinished.Hour(), tFinished.Minute(), tFinished.Second())
-	err = ensureDir(resultFolder)
-	if err != nil {
-		colorFmt.Warnf("%s Failed to create results dir under '%s'. Trying to save in the current working directory.", symbols.INFO, resultFolder)
-		file, err := os.Create(fileName)
-		if err == nil {
-			_, err = file.WriteString(multiScanRes.String())
-			if err != nil {
-				println(err.Error())
+
+	if *writeFile {
+		fileName := fmt.Sprintf("scanlog_%d-%02d-%02d_%02d-%02d-%02d.txt",
+			tFinished.Year(), tFinished.Month(), tFinished.Day(),
+			tFinished.Hour(), tFinished.Minute(), tFinished.Second())
+		err = ensureDir(resultFolder)
+		if err != nil {
+			colorFmt.Warnf("%s Failed to create results dir under '%s'. Trying to save in the current working directory.", symbols.INFO, resultFolder)
+			file, err := os.Create(fileName)
+			if err == nil {
+				_, err = file.WriteString(multiScanRes.String())
+				if err != nil {
+					println(err.Error())
+				} else {
+					colorFmt.Infof("%s Scan result saved as '%s'\n\n", symbols.INFO, fileName)
+				}
 			} else {
-				colorFmt.Infof("%s Scan result saved as '%s'\n\n", symbols.INFO, fileName)
+				println(err.Error())
 			}
 		} else {
-			println(err.Error())
-		}
-	} else {
-		filePath := path.Join(resultFolder, fileName)
-		file, err := os.Create(filePath)
-		if err == nil {
-			_, err = file.WriteString(multiScanRes.String())
-			if err != nil {
-				println(err.Error())
+			filePath := path.Join(resultFolder, fileName)
+			file, err := os.Create(filePath)
+			if err == nil {
+				_, err = file.WriteString(multiScanRes.String())
+				if err != nil {
+					println(err.Error())
+				} else {
+					colorFmt.Infof("%s Scan result saved as '%s'\n\n", symbols.INFO, filePath)
+				}
 			} else {
-				colorFmt.Infof("%s Scan result saved as '%s'\n\n", symbols.INFO, filePath)
+				println(err.Error())
 			}
-		} else {
-			println(err.Error())
 		}
 	}
 }

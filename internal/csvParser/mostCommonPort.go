@@ -10,9 +10,9 @@ import (
 	"strings"
 )
 
-type MostScannedPorts []*MostScannedPort
+type MostCommonPorts []*MostCommonPort
 
-type MostScannedPort struct {
+type MostCommonPort struct {
 	Service     string
 	Number      uint16
 	Protocol    string
@@ -20,8 +20,8 @@ type MostScannedPort struct {
 	Description string
 }
 
-func NewMostScannedPort(service string, number uint16, proto string, freq float64, desc string) *MostScannedPort {
-	return &MostScannedPort{
+func NewMostCommonPort(service string, number uint16, proto string, freq float64, desc string) *MostCommonPort {
+	return &MostCommonPort{
 		Service:     service,
 		Number:      number,
 		Protocol:    proto,
@@ -30,11 +30,11 @@ func NewMostScannedPort(service string, number uint16, proto string, freq float6
 	}
 }
 
-func NewMostScannedPorts() *MostScannedPorts {
+func NewMostCommonPorts() *MostCommonPorts {
 	csvFile, _ := os.Open("data/port_open_freq.csv")
 	reader := csv.NewReader(bufio.NewReader(csvFile))
 
-	var mostScanned MostScannedPorts
+	var commonPorts MostCommonPorts
 	for {
 		line, err := reader.Read()
 		if err == io.EOF {
@@ -50,9 +50,9 @@ func NewMostScannedPorts() *MostScannedPorts {
 		proto := x[1]
 		freq, _ := strconv.ParseFloat(f, 64)
 
-		mostScanned = append(
-			mostScanned,
-			NewMostScannedPort(
+		commonPorts = append(
+			commonPorts,
+			NewMostCommonPort(
 				service,
 				num,
 				proto,
@@ -62,5 +62,20 @@ func NewMostScannedPorts() *MostScannedPorts {
 		)
 	}
 
-	return &mostScanned
+	return &commonPorts
+}
+
+func (ports *MostCommonPorts) GetMostScannedString(n int) string {
+	var i int
+	var str string
+	for _, mS := range *ports {
+		if i == n-1 {
+			break
+		}
+		if mS.Protocol == "tcp" {
+			str += strconv.Itoa(int(mS.Number)) + ","
+			i++
+		}
+	}
+	return str[:len(str)-2]
 }
