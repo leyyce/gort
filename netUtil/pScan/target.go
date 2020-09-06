@@ -10,6 +10,7 @@ import (
 	"github.com/ElCap1tan/gort/netUtil/macLookup"
 	"github.com/mdlayher/arp"
 	quickArp "github.com/mostlygeek/arp"
+	"github.com/sparrc/go-ping"
 	"golang.org/x/sync/semaphore"
 	"net"
 	"runtime"
@@ -42,12 +43,17 @@ type Target struct {
 	Status        TargetStatus
 	Location      NetworkLocation
 	Ports         netUtil.Ports
+	Rtts          []time.Duration
 }
 
 func NewTarget(t string, ports netUtil.Ports) *Target {
 	h := &Target{InitialTarget: t, Ports: ports, Status: Unknown}
 	h.Resolve()
 	if h.IPAddr != nil {
+		stats, _ := h.Ping(3)
+		if stats.PacketsRecv > 0 {
+			h.Status = Online
+		}
 		h.QueryMac()
 		h.LookUpVendor()
 	} else {
@@ -59,10 +65,14 @@ func NewTarget(t string, ports netUtil.Ports) *Target {
 
 func AsyncNewTarget(t string, ports netUtil.Ports, ch chan *Target, scanLock *semaphore.Weighted) {
 	// TODO Add writeMutex
-	scanLock.Acquire(context.TODO(), 3)
+	scanLock.Acquire(context.TODO(), 4)
 	h := &Target{InitialTarget: t, Ports: ports, Status: Unknown}
 	h.Resolve()
 	if h.IPAddr != nil {
+		stats, _ := h.Ping(3)
+		if stats.PacketsRecv > 0 {
+			h.Status = Online
+		}
 		h.QueryMac()
 		h.LookUpVendor()
 	} else {
@@ -128,7 +138,7 @@ func (t *Target) QueryMac() {
 				if ipNet.Contains(t.IPAddr) {
 					t.Location = Local
 					if arpCli, err := arp.Dial(&inf); err == nil {
-						err = arpCli.SetReadDeadline(time.Now().Add(time.Millisecond * time.Duration(500)))
+						err = arpCli.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
 						if err != nil {
 							colorFmt.Warnf("%s %s: Error setting read timeout for arp request. Skipping mac lookup...\n",
 								symbols.INFO, t.IPAddr.String())
@@ -172,6 +182,34 @@ func (t *Target) LookUpVendor() {
 		return
 	}
 	t.Vendor = "N/A"
+}
+
+func (t *Target) Ping(count int) (*ping.Statistics, error) {
+	pinger, err := ping.NewPinger(t.IPAddr.String())
+	if err != nil {
+		t.Rtts = nil
+		return nil, err
+	}
+	pinger.Timeout = time.Millisecond * 3000
+	pinger.Count = count
+	pinger.SetPrivileged(true)
+	pinger.Run()
+
+	stats := pinger.Statistics()
+	t.Rtts = stats.Rtts
+	return stats, nil
+}
+
+func (t Target) AvgRtt() time.Duration {
+	if len(t.Rtts) == 0 {
+		return -1
+	}
+	var avgNS int64 = 1
+	for _, rtt := range t.Rtts {
+		avgNS += rtt.Nanoseconds()
+	}
+	avgNS /= int64(len(t.Rtts))
+	return time.Duration(avgNS)
 }
 
 func (t *Target) IsHost() (bool, error) {
@@ -220,6 +258,7 @@ func (t *Target) String() string {
 	return fmt.Sprintf(""+
 		"~~~~~~~~~~~~~~~ TARGET INFO ~~~~~~~~~~~~~~~~~~~~~~\n"+
 		"Target: %s | IP: %s | Hostname: %s\n"+
+		"Avg Ping [%d send]: %v\n"+
 		"Vendor: %s\n"+
 		"MacAddress: %s\n"+
 		"Network Location: %s\n"+
@@ -227,6 +266,7 @@ func (t *Target) String() string {
 		"Ports:\n%s\n"+
 		"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
 		t.InitialTarget, t.IPAddr, t.HostName,
+		len(t.Rtts), t.AvgRtt(),
 		t.Vendor,
 		mac,
 		t.Location,
@@ -255,9 +295,18 @@ func (t *Target) ColorString() string {
 		vendor = colorFmt.Ssuccessf("N/A")
 	}
 
+	var ping string
+	avg := t.AvgRtt()
+	if avg > 0 {
+		ping = colorFmt.Ssuccessf("%v", avg)
+	} else {
+		ping = colorFmt.Sfatalf("%v", avg)
+	}
+
 	return fmt.Sprintf(""+
 		"~~~~~~~~~~~~~~~ TARGET INFO ~~~~~~~~~~~~~~~~~~~~~~\n"+
 		"Target: %s | IP: %s | Hostname: %s\n"+
+		"Avg Ping [%d send]: %v\n"+
 		"Vendor: %s\n"+
 		"MacAddress: %s\n"+
 		"Network Location: %s\n"+
@@ -265,6 +314,7 @@ func (t *Target) ColorString() string {
 		"Ports:\n%s\n"+
 		"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
 		t.InitialTarget, t.IPAddr, t.HostName,
+		len(t.Rtts), ping,
 		vendor,
 		mac,
 		t.Location.ColorString(),
