@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ElCap1tan/gort/internal/colorFmt"
 	"github.com/ElCap1tan/gort/internal/helper"
+	"github.com/ElCap1tan/gort/internal/helper/ulimit"
 	"github.com/ElCap1tan/gort/internal/symbols"
 	"github.com/ElCap1tan/gort/netUtil"
 	"github.com/ElCap1tan/gort/netUtil/macLookup"
@@ -14,6 +15,7 @@ import (
 	"golang.org/x/sync/semaphore"
 	"net"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -46,11 +48,11 @@ type Target struct {
 	Rtts          []time.Duration
 }
 
-func NewTarget(t string, ports netUtil.Ports) *Target {
+func NewTarget(t string, ports netUtil.Ports, privileged bool) *Target {
 	h := &Target{InitialTarget: t, Ports: ports, Status: Unknown}
 	h.Resolve()
 	if h.IPAddr != nil {
-		stats, _ := h.Ping(3)
+		stats, _ := h.Ping(3, privileged)
 		if stats.PacketsRecv > 0 {
 			h.Status = Online
 		}
@@ -63,13 +65,13 @@ func NewTarget(t string, ports netUtil.Ports) *Target {
 	return h
 }
 
-func AsyncNewTarget(t string, ports netUtil.Ports, ch chan *Target, scanLock *semaphore.Weighted) {
+func AsyncNewTarget(t string, ports netUtil.Ports, ch chan *Target, scanLock *semaphore.Weighted, privileged bool) {
 	// TODO Add writeMutex
 	scanLock.Acquire(context.TODO(), 4)
 	h := &Target{InitialTarget: t, Ports: ports, Status: Unknown}
 	h.Resolve()
 	if h.IPAddr != nil {
-		stats, _ := h.Ping(3)
+		stats, _ := h.Ping(3, privileged)
 		if stats.PacketsRecv > 0 {
 			h.Status = Online
 		}
@@ -81,6 +83,59 @@ func AsyncNewTarget(t string, ports netUtil.Ports, ch chan *Target, scanLock *se
 	}
 	scanLock.Release(3)
 	ch <- h
+}
+
+func ParseHostString(hostArgs string, ports netUtil.Ports, privileged bool) Targets {
+	var tgtHosts Targets
+	hostCount := 0
+	out := make(chan *Target)
+
+	var limit int64
+	l, err := ulimit.GetUlimit()
+	if err != nil {
+		limit = 1024
+	} else {
+		limit = int64(l)
+	}
+
+	lock := semaphore.NewWeighted(limit)
+
+	hosts := strings.Split(hostArgs, ",")
+	for _, hostArg := range hosts {
+		if ip, ipNet, err := net.ParseCIDR(hostArg); err == nil {
+			for ip := ip.Mask(ipNet.Mask); ipNet.Contains(ip); helper.IncIp(ip) {
+				go AsyncNewTarget(ip.String(), ports, out, lock, privileged)
+				hostCount++
+			}
+		} else if helper.ValidateIPOrRange(hostArg) {
+			if strings.Contains(hostArg, "-") {
+				addrParts := strings.Split(hostArg, ".")
+				var octets [4][]int
+				for i, addrPart := range addrParts {
+					if strings.Contains(addrPart, "-") {
+						octets[i] = append(octets[i], helper.StrRangeToArray(addrPart)...)
+					} else {
+						p, _ := strconv.Atoi(addrPart)
+						octets[i] = append(octets[i], p)
+					}
+				}
+				for _, t := range octetsToTargets(octets) {
+					go AsyncNewTarget(t, ports, out, lock, privileged)
+					hostCount++
+				}
+			} else {
+				go AsyncNewTarget(hostArg, ports, out, lock, privileged)
+				hostCount++
+			}
+		} else {
+			go AsyncNewTarget(hostArg, ports, out, lock, privileged)
+			hostCount++
+		}
+	}
+	for i := 1; i <= hostCount; i++ {
+		tgtHosts = append(tgtHosts, <-out)
+	}
+	return tgtHosts
 }
 
 func (t *Target) Resolve() {
@@ -184,7 +239,7 @@ func (t *Target) LookUpVendor() {
 	t.Vendor = "N/A"
 }
 
-func (t *Target) Ping(count int) (*ping.Statistics, error) {
+func (t *Target) Ping(count int, privileged bool) (*ping.Statistics, error) {
 	pinger, err := ping.NewPinger(t.IPAddr.String())
 	if err != nil {
 		t.Rtts = nil
@@ -192,7 +247,9 @@ func (t *Target) Ping(count int) (*ping.Statistics, error) {
 	}
 	pinger.Timeout = time.Millisecond * 3000
 	pinger.Count = count
-	pinger.SetPrivileged(true)
+
+	pinger.SetPrivileged(privileged || runtime.GOOS == "windows")
+
 	pinger.Run()
 
 	stats := pinger.Statistics()
@@ -364,4 +421,18 @@ func (n NetworkLocation) ColorString() string {
 		return colorFmt.Swarnf("UNKNOWN")
 	}
 	return "N/A"
+}
+
+func octetsToTargets(octets [4][]int) []string {
+	var targets []string
+	for _, oc0 := range octets[0] {
+		for _, oc1 := range octets[1] {
+			for _, oc2 := range octets[2] {
+				for _, oc3 := range octets[3] {
+					targets = append(targets, fmt.Sprintf("%d.%d.%d.%d", oc0, oc1, oc2, oc3))
+				}
+			}
+		}
+	}
+	return targets
 }

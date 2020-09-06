@@ -3,10 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/ElCap1tan/gort/internal/argParser"
 	"github.com/ElCap1tan/gort/internal/colorFmt"
 	"github.com/ElCap1tan/gort/internal/csvParser"
 	"github.com/ElCap1tan/gort/internal/symbols"
+	"github.com/ElCap1tan/gort/netUtil"
+	"github.com/ElCap1tan/gort/netUtil/pScan"
 	"github.com/fatih/color"
 	"io"
 	"net/http"
@@ -21,7 +22,7 @@ const dataFolder, resultFolder = "data", "scans"
 func main() {
 	var usage = "" +
 		"Usage:\n" +
-		"\tgort [-p ports] [-mc count] [-closed] [-online] [-file] hosts\n" +
+		"\tgort [-p ports] [-mc count] [-closed] [-online] [-file] [-elevated] hosts\n" +
 		"\tMandatory argument:\n" +
 		"\thosts are comma separated values that can either be\n" +
 		"\t\tA single host : 192.88.99.1 or example.com\n" +
@@ -40,6 +41,10 @@ func main() {
 		"\t\t\tIf this flag is passed only hosts confirmed as online are shown in the console output.\n" +
 		"\t\t-file\n" +
 		"\t\t\tIf this flag is passed the scan result will be saved to a file.\n" +
+		"\t\t-elevated\n" +
+		"\t\t\tOnly important for Linux. If this flag is passed the ICMP echo requests will be send via raw sockets.\n" +
+		"\t\t\tYou might want to try in unprivileged mode first.\n" +
+		"\t\t\tImportant: Must be run as a super-user when this flag is used or else ping tests won't work!\n" +
 		"Examples:\n" +
 		"\t# scan the 1000 most common open ports of example.com\n" +
 		"\t\tgort example.com\n" +
@@ -61,6 +66,7 @@ func main() {
 	onlineOnly := flag.Bool("online", false, "")
 	showClosed := flag.Bool("closed", false, "")
 	writeFile := flag.Bool("file", false, "")
+	privileged := flag.Bool("elevated", false, "")
 
 	flag.Parse()
 
@@ -70,6 +76,21 @@ func main() {
 	}
 
 	hostArgs = flag.Arg(0)
+
+	// Try to update port-numbers.xml and port_open_freq.csv if necessary
+	err := ensureDir(dataFolder)
+	if err != nil {
+		colorFmt.Fatalf("%s Error creating data dir '%s': %s", symbols.FAILURE, dataFolder, err.Error())
+		return
+	}
+	err = updateKnownPorts(5)
+	if err != nil {
+		colorFmt.Warnf("%s Error while updating list of known ports. Using old list...\n", symbols.INFO)
+	}
+	err = updatePortFreq(5)
+	if err != nil {
+		colorFmt.Warnf("%s Error while updating list of most common open ports. Using old list...\n", symbols.INFO)
+	}
 
 	if *portArgs == "" || *portArgs != "" && *mostCommonCount != 1000 {
 		mostCommon := csvParser.NewMostCommonPorts()
@@ -94,23 +115,8 @@ func main() {
 		portArgs = &p
 	}
 
-	// Try to update port-numbers.xml and port_open_freq.csv if necessary
-	err := ensureDir(dataFolder)
-	if err != nil {
-		colorFmt.Fatalf("%s Error creating data dir '%s': %s", symbols.FAILURE, dataFolder, err.Error())
-		return
-	}
-	err = updateKnownPorts(5)
-	if err != nil {
-		colorFmt.Warnf("%s Error while updating list of known ports. Using old list...\n", symbols.INFO)
-	}
-	err = updatePortFreq(5)
-	if err != nil {
-		colorFmt.Warnf("%s Error while updating list of most common open ports. Using old list...\n", symbols.INFO)
-	}
-
 	colorFmt.Infof("%s Parsing and resolving host arguments...\n", symbols.INFO)
-	targets := argParser.ParseHostArgs(hostArgs, argParser.ParsePortArgs(*portArgs, "tcp"))
+	targets := pScan.ParseHostString(hostArgs, netUtil.ParsePortString(*portArgs, "tcp"), *privileged)
 	colorFmt.Infof("%s STARTING SCAN...\n", symbols.INFO)
 	multiScanRes := targets.Scan()
 	tFinished := time.Now()
