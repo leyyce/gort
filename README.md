@@ -7,7 +7,7 @@ features and both Windows and Linux support.
 | Table of Content                                                                                                 |
 | -------------                                                                                                    |
 | 1. [Features](#features)                                                                                         |
-| 2. [Buidling from source](#building-from-source)                                                                 |
+| 2. [Building from source](#building-from-source)                                                                 |
 | 3. [Prebuild binaries](#prebuild-binaries)                                                                       |
 | 4. [How to include gort as a library in your own program](#how-to-include-gort-as-a-library-in-your-own-program) |
 | 5. [Usage](#usage)                                                                                               |
@@ -33,6 +33,7 @@ features and both Windows and Linux support.
   subnet, and the devices that can be found in it.
 - Outputting of scan results to file for later reference.
 - Options to filter output to only show hosts confirmed as online or to only display open ports.
+- Also usable as port scanning library.
 
 ## Building from source
 1. Clone the repository and navigate into it.
@@ -74,7 +75,7 @@ Running ```gort``` without any arguments will display a usage help message.
 ```
 > gort [-p ports] [-mc count] [-closed] [-online] [-file] hosts
 ```
-### Mandatory arguments: 
+#### Mandatory arguments: 
 **hosts**  
 are comma separated values that can either be
 
@@ -83,7 +84,7 @@ are comma separated values that can either be
 | A single host               | 192.88.99.1 or example.com           |
 | A range of hosts            | 192.88.99.1-50 or 192.88.99-100.1-50 |
 | A CIDR formatted host range | 192.88.99.1/24                       |
-### Optional arguments
+#### Optional arguments
 | Name          | Description           | Example  |
 | ------------- |:---------------------------------------------------------------------------------------------------------:| -------------:|
 | -p            | ports are comma separated values that either can be a single port or a range of ports                     | 80 or 100-200 |
@@ -91,12 +92,13 @@ are comma separated values that can either be
 | -closed       | If this flag is passed ports with closed and unknown/filtered state are also shown in the console output. |               |
 | -online       | If this flag is passed only hosts confirmed as online are shown in the console output.                    |               |
 | -file         | If this flag is passed the scan result will be saved to a file.                                           |               |
+| -elevated     | **Only important for Linux:** If this flag is passed the ICMP echo requests will be send via raw sockets. You might want to try in unprivileged mode first. **Important:** Must be run as a super-user when this flag is used or else ping tests won't work! |               |
 
-### Examples:
+#### Examples:
 - scan the 1000 most common open ports of example.com  
   ```gort example.com```  
-- scan the 500 most common open ports of example.com  
-  ```gort -mc 500 example.com```  
+- scan the 500 most common open ports of example.com and 192.88.99.1  
+  ```gort -mc 500 example.com,192.88.99.1```  
 - scan a custom list of ports for example.com and also show closed or unknown ports in result  
   ```gort -p 80,443,1000-1024 -closed example.com```  
 - scan the subnet 192.88.99.0/24 for the 100 most common open ports and and a custom list of ports
