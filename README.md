@@ -2,14 +2,14 @@
 gort is a flexible, fast and concurrent port scanner cli and a port scanning library written in go with extensive 
 features and both Windows and Linux support.
   
-![Console-Demo](https://raw.githubusercontent.com/ElCap1tan/gort/master/examples/demo.png)
+![Console-Demo-Windows](assets/demo_windows.png)
 
 | Table of Content                                                                                                 |
 | -------------                                                                                                    |
 | 1. [Features](#features)                                                                                         |
 | 2. [Building from source](#building-from-source)                                                                 |
 | 3. [Prebuild binaries](#prebuild-binaries)                                                                       |
-| 4. [How to include gort as a library in your own program](#how-to-include-gort-as-a-library-in-your-own-program) |
+| 4. [How to include gort as a library in your own program?](#how-to-include-gort-as-a-library-in-your-own-program) |
 | 5. [Usage](#usage)                                                                                               |
 | 6. [Limitations](#limitations)                                                                                   |
 | 7. [Dependencies](#dependencies)                                                                                 |
@@ -42,10 +42,16 @@ features and both Windows and Linux support.
      ...
    > cd gort
    ```
-2. Make sure you turn on go modules by setting the ```GO111MODULE``` environment variable to ```on```.
+2. Make sure you turn on go modules by setting the ```GO111MODULE``` environment variable to ```on```.  
+     
+   On Windows use
    ```
    SET GO111MODULE=on
    ```
+   On Linux use
+      ```
+      export GO111MODULE=on
+      ```
 3. Next make sure to ```go get``` the dependencies...
 4. ... and build it by running 
    ```
@@ -60,13 +66,13 @@ features and both Windows and Linux support.
 ## Prebuild binaries
 Will be added in the near future. For now you'll have to build yourself.
 
-## How to include gort as a library in your own program
+## How to include gort as a library in your own program?
 Using gorts port scanning capabilities in your own project is as easy as running 
 ```
 > go get github.com/ElCap1tan/gort
 ```
 inside your go module root, and you're good to go. For example usage see 
-[How to use gort as a library in your own code?](#how-to-use-gort-as-a-library-in-your-own-code?).
+[How to use gort as a library in your own code?](#how-to-use-gort-as-a-library-in-your-own-code).
 ## Usage
 ### How to use the gort cli application for scans from the commandline
 Depending on the OS you either need run ```gort``` or ```gort.exe```.  
@@ -120,4 +126,9 @@ Will be added soon.
 Will be added soon.
 
 ## Dependencies
-Will be added soon.
+This project uses:
+- The [color](https://github.com/fatih/color) library by [faith](https://github.com/fatih) for the colored console output
+- [arp](https://github.com/mdlayher/arp) by [mdlayher](https://github.com/mdlayher) for the ARP-request based mac lookups
+- [arp](https://github.com/mostlygeek/arp) by [mostlygeek](https://github.com/mostlygeek) for ARP-cache based mac lookups
+- [go-ping](https://github.com/sparrc/go-ping) by [sparrc](https://github.com/sparrc) for the ICMP ping requests
+- The MAC vendor-lookup api by [macvendors.co](http://macvendors.co/) for MAC-to-vendor resolution

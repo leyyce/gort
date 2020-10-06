@@ -87,21 +87,27 @@ func NewTarget(t string, ports netUtil.Ports, privileged bool) *Target {
 
 func AsyncNewTarget(t string, ports netUtil.Ports, ch chan *Target, scanLock *semaphore.Weighted, privileged bool) {
 	// TODO Add writeMutex
-	scanLock.Acquire(context.TODO(), 4)
 	h := &Target{InitialTarget: t, Ports: ports, Status: Unknown}
+	scanLock.Acquire(context.TODO(), 1)
 	h.Resolve()
+	scanLock.Release(1)
 	if h.IPAddr != nil {
+		scanLock.Acquire(context.TODO(), 1)
 		stats, _ := h.Ping(3, privileged)
+		scanLock.Release(1)
 		if stats.PacketsRecv > 0 {
 			h.Status = Online
 		}
+		scanLock.Acquire(context.TODO(), 1)
 		h.QueryMac()
+		scanLock.Release(1)
+		scanLock.Acquire(context.TODO(), 1)
 		h.LookUpVendor()
+		scanLock.Release(1)
 	} else {
 		h.MACAddr = nil
 		h.Location = UnknownLoc
 	}
-	scanLock.Release(3)
 	ch <- h
 }
 
@@ -281,7 +287,7 @@ func (t Target) AvgRtt() time.Duration {
 	if len(t.Rtts) == 0 {
 		return -1
 	}
-	var avgNS int64 = 1
+	var avgNS int64 = 0
 	for _, rtt := range t.Rtts {
 		avgNS += rtt.Nanoseconds()
 	}
@@ -372,12 +378,12 @@ func (t *Target) ColorString() string {
 		vendor = colorFmt.Ssuccessf("N/A")
 	}
 
-	var ping string
+	var rtt string
 	avg := t.AvgRtt()
 	if avg > 0 {
-		ping = colorFmt.Ssuccessf("%v", avg)
+		rtt = colorFmt.Ssuccessf("%v", avg)
 	} else {
-		ping = colorFmt.Sfatalf("%v", avg)
+		rtt = colorFmt.Sfatalf("%v", avg)
 	}
 
 	return fmt.Sprintf(""+
@@ -391,7 +397,7 @@ func (t *Target) ColorString() string {
 		"Ports:\n%s\n"+
 		"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
 		t.InitialTarget, t.IPAddr, t.HostName,
-		len(t.Rtts), ping,
+		len(t.Rtts), rtt,
 		vendor,
 		mac,
 		t.Location.ColorString(),

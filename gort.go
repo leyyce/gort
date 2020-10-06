@@ -141,7 +141,7 @@ func main() {
 	multiScanRes := targets.Scan()
 	tFinished := time.Now()
 	if runtime.GOOS == "windows" {
-		_, err = color.Output.Write([]byte(multiScanRes.CustomColorString(*onlineOnly, *showClosed)))
+		_, err = color.Output.Write([]byte(multiScanRes.CustomColorString(*onlineOnly, *showClosed) + "\n"))
 		if err != nil {
 			colorFmt.Infof("Error writing colored scan result to the console. Trying uncolored...")
 			fmt.Println(multiScanRes.String())

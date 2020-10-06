@@ -132,6 +132,7 @@ func (t *Target) scanPort(p *netUtil.Port, ch chan *PortResults, lock *semaphore
 		if strings.HasSuffix(err.Error(), "too many open files") {
 			time.Sleep(timeOut)
 			go t.scanPort(p, ch, lock)
+			// TODO Check if it makes sense to not release the lock if to many files are open already
 			lock.Release(1)
 			return
 		}
