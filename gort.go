@@ -33,11 +33,12 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"runtime"
 	"time"
 )
 
-const dataFolder, resultFolder = "data", "scans"
+var dataFolder, resultFolder = "data", "scans"
 
 func main() {
 	var usage = "" +
@@ -97,6 +98,12 @@ func main() {
 
 	hostArgs = flag.Arg(0)
 
+	// Try to get execution path of the program. If successful tries to save the needed data in the same folder as
+	// the executable is located in. If not the data will be saved in the current working directory.
+	if execPath, err := getExecutionPath(); err == nil {
+		dataFolder = path.Join(execPath, dataFolder)
+	}
+
 	// Try to update port-numbers.xml and port_open_freq.csv if necessary
 	err := ensureDir(dataFolder)
 	if err != nil {
@@ -113,7 +120,7 @@ func main() {
 	}
 
 	if *portArgs == "" || *portArgs != "" && *mostCommonCount != 1000 {
-		mostCommon := csvParser.NewMostCommonPorts()
+		mostCommon := csvParser.NewMostCommonPorts(dataFolder)
 		maxAvailable := 0
 		for _, p := range *mostCommon {
 			if p.Protocol == "tcp" {
@@ -136,7 +143,7 @@ func main() {
 	}
 
 	colorFmt.Infof("%s Parsing and resolving host arguments...\n", symbols.INFO)
-	targets := pScan.ParseHostString(hostArgs, netUtil.ParsePortString(*portArgs, "tcp"), *privileged)
+	targets := pScan.ParseHostString(hostArgs, netUtil.ParsePortString(*portArgs, "tcp", dataFolder), *privileged)
 	colorFmt.Infof("%s STARTING SCAN...\n", symbols.INFO)
 	multiScanRes := targets.Scan()
 	tFinished := time.Now()
@@ -245,4 +252,14 @@ func ensureDir(dirName string) error {
 		return nil
 	}
 	return err
+}
+
+func getExecutionPath() (string, error) {
+	ex, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	exPath := filepath.Dir(ex)
+	exPath, err = filepath.EvalSymlinks(exPath)
+	return exPath, err
 }

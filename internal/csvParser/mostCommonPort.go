@@ -26,6 +26,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 )
@@ -50,8 +51,8 @@ func NewMostCommonPort(service string, number uint16, proto string, freq float64
 	}
 }
 
-func NewMostCommonPorts() *MostCommonPorts {
-	csvFile, _ := os.Open("data/port_open_freq.csv")
+func NewMostCommonPorts(dataDir string) *MostCommonPorts {
+	csvFile, _ := os.Open(path.Join(dataDir, "port_open_freq.csv"))
 	reader := csv.NewReader(bufio.NewReader(csvFile))
 
 	var commonPorts MostCommonPorts

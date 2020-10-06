@@ -24,10 +24,11 @@ import (
 	"encoding/xml"
 	"io/ioutil"
 	"os"
+	"path"
 )
 
-func NewPortRegistry() (*PortRegistry, error) {
-	xmlFile, err := os.Open("data/port-numbers.xml")
+func NewPortRegistry(dataFolder string) (*PortRegistry, error) {
+	xmlFile, err := os.Open(path.Join(dataFolder, "port-numbers.xml"))
 	if err != nil {
 		return nil, err
 	}
