@@ -213,13 +213,13 @@ func updateKnownPorts(maxAgeDays int) error {
 func updatePortFreq(maxAgeDays int) error {
 	pfPath := path.Join(dataFolder, "port_open_freq.csv")
 	url := "https://docs.google.com/spreadsheets/d/1r_IriqmkTNPSTiUwii_hQ8Gwl2tfTUz8AGIOIL-wMIE/export?format=csv"
-	pnStats, err := os.Stat(pfPath)
+	pfStats, err := os.Stat(pfPath)
 	if err != nil {
 		colorFmt.Warnf("%s Most common open ports list under %s not found. Trying to download it from %s...\n", symbols.INFO, pfPath, url)
 		err = fetchFile(url, pfPath)
 		return err
 	}
-	lastModTime := pnStats.ModTime()
+	lastModTime := pfStats.ModTime()
 	if lastModTime.Add(time.Hour * 24 * time.Duration(maxAgeDays)).Before(time.Now()) {
 		colorFmt.Infof("%s List of most common open ports not updated since %d days. Trying to update now...\n", symbols.INFO, maxAgeDays)
 		err = fetchFile(url, pfPath)

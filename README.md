@@ -127,7 +127,7 @@ Will be added soon.
 
 ## Dependencies
 This project uses:
-- The [color](https://github.com/fatih/color) library by [faith](https://github.com/fatih) for the colored console output
+- The [color](https://github.com/fatih/color) library by [fatih](https://github.com/fatih) for the colored console output
 - [arp](https://github.com/mdlayher/arp) by [mdlayher](https://github.com/mdlayher) for the ARP-request based mac lookups
 - [arp](https://github.com/mostlygeek/arp) by [mostlygeek](https://github.com/mostlygeek) for ARP-cache based mac lookups
 - [go-ping](https://github.com/sparrc/go-ping) by [sparrc](https://github.com/sparrc) for the ICMP ping requests
