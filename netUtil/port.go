@@ -41,9 +41,9 @@ func NewPort(portNo uint16, proto string, service string, desc string) *Port {
 	return &Port{PortNo: portNo, Protocol: proto, Service: service, Description: desc}
 }
 
-func ParsePortString(portArgs string, proto string) Ports {
+func ParsePortString(portArgs string, proto string, dataFolder string) Ports {
 	var tgtPorts Ports
-	portRegistry, err := xmlParser.NewPortRegistry()
+	portRegistry, err := xmlParser.NewPortRegistry(dataFolder)
 	if err == nil {
 		ports := strings.Split(portArgs, ",")
 		for _, portArg := range ports {
