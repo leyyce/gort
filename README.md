@@ -1,5 +1,11 @@
 # gort
-[![Build Status](https://travis-ci.com/ElCap1tan/gort.svg?branch=master)](https://travis-ci.com/ElCap1tan/gort)  
+[![made-with-Go](https://img.shields.io/badge/Made%20with-Go-1f425f.svg)](http://golang.org)
+[![GitHub license](https://img.shields.io/github/license/ElCap1tan/gort.svg)](LICENSE)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/ElCap1tan/gort/graphs/commit-activity)
+[![Open Source](https://badges.frapsoft.com/os/v1/open-source.png?v=103)](https://github.com/ElCap1tan/gort/)
+[![Build Status](https://travis-ci.com/ElCap1tan/gort.svg?branch=master)](https://travis-ci.com/ElCap1tan/gort)
+[![GitHub stars](https://img.shields.io/github/stars/ElCap1tan/gort?style=social&label=Star&maxAge=3600)](https://github.com/ElCap1tan/gort/stargazers/)  
+
 gort is a flexible, fast and concurrent port scanner cli and a port scanning library written in go with extensive 
 features and both Windows and Linux support.
   
