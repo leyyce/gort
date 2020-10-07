@@ -1,4 +1,5 @@
 # gort
+[![Build Status](https://travis-ci.com/ElCap1tan/gort.svg?branch=master)](https://travis-ci.com/ElCap1tan/gort)  
 gort is a flexible, fast and concurrent port scanner cli and a port scanning library written in go with extensive 
 features and both Windows and Linux support.
   
