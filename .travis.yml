@@ -1,0 +1,10 @@
+language: go
+
+go: "1.14"
+
+notifications:
+  email:
+    recipients:
+      - yannic.wehner@pm.me
+    on_success: never
+    on_failure: always
