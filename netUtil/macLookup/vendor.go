@@ -20,16 +20,31 @@
 
 package macLookup
 
+// Vendor represents a single device manufacturer.
 type Vendor struct {
-	Address   string `json:"address"`
-	Company   string `json:"company"`
-	Country   string `json:"country"`
-	Type      string `json:"type"`
+	// Address is the postal address of the vendor
+	Address string `json:"address"`
+
+	// Company is the company name of the vendor.
+	Company string `json:"company"`
+
+	// Country is the country in which the vendor operates.
+	Country string `json:"country"`
+
+	// Type is the address block type of the vendor.
+	Type string `json:"type"`
+
+	// MacPrefix is the vendor specific MAC-prefix.
 	MacPrefix string `json:"mac_prefix"`
-	StartHex  string `json:"start_hex"`
-	EndHex    string `json:"end_hex"`
+
+	// StartHex is the first address of the vendor prefix.
+	StartHex string `json:"start_hex"`
+
+	//EndHex is the last address of the vendor prefix.
+	EndHex string `json:"end_hex"`
 }
 
+// VendorResult represents a result returned from the API.
 type VendorResult struct {
 	*Vendor `json:"result"`
 }

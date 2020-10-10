@@ -30,12 +30,15 @@ import (
 	"net/http"
 )
 
+// MACFormatError is returned if the provided MAC-address is an unsupported format.
 var MACFormatError = errors.New("invalid mac format. Supported formats hex ':' bit '-' dot '.'")
 
-const lookUpURL, format string = "http://macvendors.co/api/", "JSON"
+const lookUpURL, format string = "http://macvendors.co/api", "JSON"
 
+// LookupVendor tries to look up the vendor of hardwareAddr by sending a HTTP-request to
+// the API of 'http://macvendors.co/' and if successful returns a pointer to the VendorResult.
 func LookupVendor(hardwareAddr net.HardwareAddr) (*VendorResult, error) {
-	url := fmt.Sprintf("%s%s/%s", lookUpURL, hardwareAddr.String(), format)
+	url := fmt.Sprintf("%s/%s/%s", lookUpURL, hardwareAddr.String(), format)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err

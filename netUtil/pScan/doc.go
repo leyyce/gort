@@ -18,33 +18,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package xmlParser
-
-import (
-	"encoding/xml"
-	"io/ioutil"
-	"os"
-	"path"
-)
-
-func NewPortRegistry(dataFolder string) (*PortRegistry, error) {
-	xmlFile, err := os.Open(path.Join(dataFolder, "service-names-port-numbers.xml"))
-	if err != nil {
-		return nil, err
-	}
-
-	defer xmlFile.Close()
-
-	byteValue, _ := ioutil.ReadAll(xmlFile)
-
-	var portRegistry PortRegistry
-
-	err = xml.Unmarshal(byteValue, &portRegistry)
-
-	if err != nil {
-		println(err.Error())
-		return nil, err
-	}
-
-	return &portRegistry, nil
-}
+// Package pScan provides all the port scanning capability and the Target and Targets type on which those scans can be
+// performed. The result(s) are returned as MultiScanResult.
+package pScan

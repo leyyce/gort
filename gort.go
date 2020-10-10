@@ -193,7 +193,7 @@ func main() {
 }
 
 func updateKnownPorts(maxAgeDays int) error {
-	pnPath := path.Join(dataFolder, "port-numbers.xml")
+	pnPath := path.Join(dataFolder, "service-names-port-numbers.xml")
 	url := "https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xml"
 	pnStats, err := os.Stat(pnPath)
 	if err != nil {
