@@ -32,6 +32,8 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
+// Scan performs a concurrent full connection scan for every Target in Targets and once finished,
+// returns the scan result as an MultiScanResult.
 func (t Targets) Scan() MultiScanResult {
 	var multiScanRes MultiScanResult
 	out := make(chan *ScanResult)
@@ -58,9 +60,11 @@ func (t Targets) Scan() MultiScanResult {
 	return multiScanRes
 }
 
+// Scan performs a concurrent full connection scan for all ports of a singe Target and
+// returns a pointer to the ScanResult when finished.
 func (t *Target) Scan() *ScanResult {
 	r := NewScanResult(t, time.Now())
-	ch := make(chan *PortResults)
+	ch := make(chan *PortResult)
 
 	var limit int64
 	l, err := ulimit.GetUlimit()
@@ -84,9 +88,11 @@ func (t *Target) Scan() *ScanResult {
 	return r
 }
 
+// scan starts a concurrent full connection port scan for every port of the Target and writes the results to out.
+// The lock can be used to control how many concurrent scans are allowed to run.
 func (t *Target) scan(out chan *ScanResult, lock *semaphore.Weighted) {
 	r := NewScanResult(t, time.Now())
-	ch := make(chan *PortResults)
+	ch := make(chan *PortResult)
 	for _, p := range t.Ports {
 		go t.scanPort(p, ch, lock)
 	}
@@ -100,8 +106,10 @@ func (t *Target) scan(out chan *ScanResult, lock *semaphore.Weighted) {
 	out <- r
 }
 
-func (t *Target) scanPort(p *netUtil.Port, ch chan *PortResults, lock *semaphore.Weighted) {
-	res := NewPortResults()
+// scanPort scans a single port of the Target as specified by p. When finished the result is written to ch.
+// The parameter lock can be used to control how many concurrent scans are allowed to run.
+func (t *Target) scanPort(p *netUtil.Port, ch chan *PortResult, lock *semaphore.Weighted) {
+	res := NewPortResult()
 	milli := 3000
 	timeOut := time.Duration(milli) * time.Millisecond
 	lock.Acquire(context.TODO(), 1)

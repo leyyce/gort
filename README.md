@@ -119,23 +119,23 @@ are comma separated values that can either be
   ```
   gort -mc 100 -p 10334,12012 -online 192.88.99.0/24  
   ```
-  or 
+  or  
   ``` 
   gort -mc 100 -p 10334,12012 -online 192.88.99.0-255  
   ```
 
 **IMPORTANT**: If you plan to run gort for the first time **without internet access**, make sure to copy the ```data``` 
-folder and it's content into the same location as the binary. For more information take a look [here](#building-from-source).
+folder and it's content into the same location as the binary. For more information take a look [here](#building-from-source).  
 ### How to use gort as a library in your own code?
-Will be added soon.
+Will be added soon.  
 
 ## Limitations
-Will be added soon.
+Will be added soon.  
 
 ## Dependencies
-This project uses:
-- The [color](https://github.com/fatih/color) library by [fatih](https://github.com/fatih) for the colored console output
-- [arp](https://github.com/mdlayher/arp) by [mdlayher](https://github.com/mdlayher) for the ARP-request based mac lookups
-- [arp](https://github.com/mostlygeek/arp) by [mostlygeek](https://github.com/mostlygeek) for ARP-cache based mac lookups
-- [go-ping](https://github.com/sparrc/go-ping) by [sparrc](https://github.com/sparrc) for the ICMP ping requests
-- The MAC vendor-lookup api by [macvendors.co](http://macvendors.co/) for MAC-to-vendor resolution
+This project uses:  
+- The [color](https://github.com/fatih/color) library by [fatih](https://github.com/fatih) for the colored console output  
+- [arp](https://github.com/mdlayher/arp) by [mdlayher](https://github.com/mdlayher) for the ARP-request based mac lookups  
+- [arp](https://github.com/mostlygeek/arp) by [mostlygeek](https://github.com/mostlygeek) for ARP-cache based mac lookups  
+- [go-ping](https://github.com/sparrc/go-ping) by [sparrc](https://github.com/sparrc) for the ICMP ping requests  
+- The MAC vendor-lookup api by [macvendors.co](http://macvendors.co/) for MAC-to-vendor resolution  

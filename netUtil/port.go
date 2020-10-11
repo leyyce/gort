@@ -18,6 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+// Package netUtil contains all the publicly exposed networking functionality of gort like the port scanning types and
+// functionality provided in 'netUtil.pScan'.
 package netUtil
 
 import (
@@ -28,25 +30,50 @@ import (
 	"strings"
 )
 
+// Ports is a list of Port pointers.
 type Ports []*Port
 
+// Port represents a single target port.
 type Port struct {
-	PortNo      uint16
-	Protocol    string
-	Service     string
+	// PortNo is the number of the target port.
+	// A port number is a 16-bit unsigned integer and thus can range from 0 to 65535.
+	PortNo uint16
+
+	// Protocol is the transport protocol of the port (either TCP or UDP).
+	Protocol string
+
+	// Service is the default service running on a given port as specified by IANA.
+	Service string
+
+	// Description is a short description of the Service.
 	Description string
 }
 
+// NewPort returns a pointer to a new instance of Port.
+// portNo is the port number of the new Port and proto is the transport protocol used by it.
+// service is the default service running on a given port as specified by IANA and
+// desc is a short description of that service.
+// To initialize a new port you usually should use ParsePortString as this method will try to lookup the
+// service and description of the given ports automatically.
 func NewPort(portNo uint16, proto string, service string, desc string) *Port {
 	return &Port{PortNo: portNo, Protocol: proto, Service: service, Description: desc}
 }
 
-func ParsePortString(portArgs string, proto string, dataFolder string) Ports {
+// ParsePortString parses ports and returns the newly initialized Ports.
+//
+// ports is comma separated list of values that can be in either of the following formats:
+// - A single port: 23
+// - A range of ports: 23-100
+//
+// The parameter proto specifies the transport protocol of the given ports and dataFolder is the path to the folder
+// which contains the 'service-names-port-numbers.xml' file by IANA that is used for port service lookups. (The file can
+// be found under https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xml).
+func ParsePortString(ports string, proto string, dataFolder string) Ports {
 	var tgtPorts Ports
 	portRegistry, err := xmlParser.NewPortRegistry(dataFolder)
 	if err == nil {
-		ports := strings.Split(portArgs, ",")
-		for _, portArg := range ports {
+		portList := strings.Split(ports, ",")
+		for _, portArg := range portList {
 			if strings.Contains(portArg, "-") {
 				rawPorts := helper.StrRangeToArray(portArg)
 				for _, rawPort := range rawPorts {
@@ -113,27 +140,28 @@ func ParsePortString(portArgs string, proto string, dataFolder string) Ports {
 		}
 		return tgtPorts
 	}
-	ports := strings.Split(portArgs, ",")
-	for _, portArg := range ports {
+	portList := strings.Split(ports, ",")
+	for _, portArg := range portList {
 		if strings.Contains(portArg, "-") {
 			rawPorts := helper.StrRangeToArray(portArg)
 			for _, rawPort := range rawPorts {
 				if helper.ValidatePort(strconv.Itoa(rawPort)) {
 					tgtPorts = append(tgtPorts, NewPort(uint16(rawPort), proto, "N/A",
-						"Make sure you have provided the port-numbers.xml file"))
+						"Make sure you have provided the service-names-port-numbers.xml file"))
 				}
 			}
 		} else {
 			if helper.ValidatePort(portArg) {
 				p, _ := strconv.ParseUint(portArg, 10, 16)
 				tgtPorts = append(tgtPorts, NewPort(uint16(p), proto, "N/A",
-					"Make sure you have provided the port-numbers.xml file"))
+					"Make sure you have provided the service-names-port-numbers.xml file"))
 			}
 		}
 	}
 	return tgtPorts
 }
 
+// String returns a string representation of the Port pointer.
 func (p *Port) String() string {
 	if p.Service == "" || p.Service == "N/A" {
 		return fmt.Sprintf("%5d/%s", p.PortNo, p.Protocol)
@@ -141,6 +169,7 @@ func (p *Port) String() string {
 	return fmt.Sprintf("%5d/%s [%s]", p.PortNo, p.Protocol, p.Service)
 }
 
+// String returns a string representation of Ports.
 func (ps Ports) String() string {
 	ret := ""
 	for i, p := range ps {
@@ -152,10 +181,11 @@ func (ps Ports) String() string {
 	return ret[:len(ret)-2]
 }
 
-func (ps Ports) Preview() string {
-	maxPerLine := 30
+// Preview returns a preview string representation of Ports where maxToDisplay is the maximum number of ports that
+// should be shown.
+func (ps Ports) Preview(maxToDisplay int) string {
 	ret := ""
-	if len(ps) < maxPerLine {
+	if len(ps) < maxToDisplay {
 		for i, p := range ps {
 			ret += p.String() + ", "
 			if i != 0 && i%10 == 0 && i+1 != len(ps) {
@@ -164,7 +194,7 @@ func (ps Ports) Preview() string {
 		}
 		ret = ret[:len(ret)-2]
 	} else {
-		for i, p := range ps[:maxPerLine] {
+		for i, p := range ps[:maxToDisplay] {
 			if i != 0 && i%10 == 0 && i+1 != len(ps) {
 				ret += "\n"
 			}

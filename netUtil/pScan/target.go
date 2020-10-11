@@ -40,36 +40,68 @@ import (
 	"time"
 )
 
+// Targets is an array of Target pointers.
 type Targets []*Target
 
+// HostName is a string representing the hostname of the Target.
 type HostName string
 
+// TargetStatus is an integer representing the status of the Target.
+// The values can be Online, OfflineFiltered or Unknown.
 type TargetStatus int
+
+// NetworkLocation is an integer representing the Target location inside the network.
+// The values can be Local, Global or UnknownLoc.
 type NetworkLocation int
 
 const (
-	Online TargetStatus = iota + 1
+	Online TargetStatus = iota
 	OfflineFiltered
 	Unknown
-	Local NetworkLocation = iota + 1
+	Local NetworkLocation = iota
 	Global
 	UnknownLoc
 )
 
+// Target represent a network host with all the necessary fields to conduct a port scan.
+// A target always should be initialized with the NewTarget, AsyncNewTarget or ParseHostString methods.
 type Target struct {
-	HostName      HostName
-	Vendor        string
-	IPAddr        net.IP
-	MACAddr       net.HardwareAddr
+	// HostName is string containing the host name of the Target.
+	HostName HostName
+
+	//Vendor is a string containing the name of the Target vendor if the lookup was successful.
+	Vendor string
+
+	// IPAddr is the ip of the Target.
+	IPAddr net.IP
+
+	// MACAddr is the MAC-address of the target if it could be found.
+	MACAddr net.HardwareAddr
+
+	// InitialTarget is a string containing the initial IP-address or host name the target was created with.
 	InitialTarget string
-	Status        TargetStatus
-	Location      NetworkLocation
-	Ports         netUtil.Ports
-	Rtts          []time.Duration
+
+	// Status contains the TargetStatus
+	Status TargetStatus
+
+	// Location contains the NetworkLocation of the Target.
+	Location NetworkLocation
+
+	// Ports is a list of type netUtil.ports to be scanned.
+	Ports netUtil.Ports
+
+	// RTTs contains the round trip times of the ping requests if they could be send successfully.
+	RTTs []time.Duration
 }
 
-func NewTarget(t string, ports netUtil.Ports, privileged bool) *Target {
-	h := &Target{InitialTarget: t, Ports: ports, Status: Unknown}
+// NewTarget returns a pointer to an initialized instance of Target as defined
+// by the targetAddress and ports. Before returning the Target, it is resolved by calling Target.Resolve.
+// If the resolve was successful, AsyncNewTarget will try to send a ping request by calling Target.Ping and to query
+// the MAC-address and vendor name  by calling Target.QueryMac and Target.LookUpVendor. scanLock is used to controls
+// how many targets may be resolved simultaneously and privileged controls if the scan should be run either
+// in a (more detailed) mode that require root privileges, or (in the less detailed) 'user' mode.
+func NewTarget(targetAddress string, ports netUtil.Ports, privileged bool) *Target {
+	h := &Target{InitialTarget: targetAddress, Ports: ports, Status: Unknown}
 	h.Resolve()
 	if h.IPAddr != nil {
 		stats, _ := h.Ping(3, privileged)
@@ -85,9 +117,15 @@ func NewTarget(t string, ports netUtil.Ports, privileged bool) *Target {
 	return h
 }
 
-func AsyncNewTarget(t string, ports netUtil.Ports, ch chan *Target, scanLock *semaphore.Weighted, privileged bool) {
+// AsyncNewTarget asynchronously creates a pointer to an initialized instance of Target as defined
+// by the targetAddress and ports. Before returning the Target over ch, it is resolved by calling Target.Resolve.
+// If the resolve was successful, AsyncNewTarget will try to send a ping request by calling Target.Ping and to query
+// the MAC-address and vendor name  by calling Target.QueryMac and Target.LookUpVendor. scanLock is used to controls
+// how many targets may be resolved simultaneously and privileged controls if the scan should be run either
+// in a (more detailed) mode that require root privileges, or (in the less detailed) 'user' mode.
+func AsyncNewTarget(targetAddress string, ports netUtil.Ports, ch chan *Target, scanLock *semaphore.Weighted, privileged bool) {
 	// TODO Add writeMutex
-	h := &Target{InitialTarget: t, Ports: ports, Status: Unknown}
+	h := &Target{InitialTarget: targetAddress, Ports: ports, Status: Unknown}
 	scanLock.Acquire(context.TODO(), 1)
 	h.Resolve()
 	scanLock.Release(1)
@@ -111,7 +149,19 @@ func AsyncNewTarget(t string, ports netUtil.Ports, ch chan *Target, scanLock *se
 	ch <- h
 }
 
-func ParseHostString(hostArgs string, ports netUtil.Ports, privileged bool) Targets {
+// ParseHostString parses hosts and returns the initialized Targets.
+//
+// hosts is comma separated list of values that can be in either of the following formats:
+// - A single IP address: 192.88.99.1
+// - A range of IP addresses: 192.88.99-100.1-100
+// - A CIDR formatted IP address range: 192.88.99.1/24
+// - A host name: example.com
+//
+// ports is a list of type ports that should be scanned for every host in hosts.
+//
+// privileged controls if the targets should be resolved either in
+// a (more detailed) mode that require root privileges or (in the less detailed) 'user' mode.
+func ParseHostString(hosts string, ports netUtil.Ports, privileged bool) Targets {
 	var tgtHosts Targets
 	hostCount := 0
 	out := make(chan *Target)
@@ -126,8 +176,8 @@ func ParseHostString(hostArgs string, ports netUtil.Ports, privileged bool) Targ
 
 	lock := semaphore.NewWeighted(limit)
 
-	hosts := strings.Split(hostArgs, ",")
-	for _, hostArg := range hosts {
+	hostList := strings.Split(hosts, ",")
+	for _, hostArg := range hostList {
 		if ip, ipNet, err := net.ParseCIDR(hostArg); err == nil {
 			for ip := ip.Mask(ipNet.Mask); ipNet.Contains(ip); helper.IncIp(ip) {
 				go AsyncNewTarget(ip.String(), ports, out, lock, privileged)
@@ -164,6 +214,7 @@ func ParseHostString(hostArgs string, ports netUtil.Ports, privileged bool) Targ
 	return tgtHosts
 }
 
+// Resolve tries to resolve the IP address and the host name of the Target pointer.
 func (t *Target) Resolve() {
 	if helper.ValidateIPOrRange(t.InitialTarget) {
 		hostNames, err := net.LookupAddr(t.InitialTarget)
@@ -191,6 +242,8 @@ func (t *Target) Resolve() {
 	}
 }
 
+// QueryMac tries to query the MAC address of the Target pointer either by ARP cache lookup or alternatively if
+// not found in cache by sending an ARP-request.
 func (t *Target) QueryMac() {
 	if b, err := t.IsHost(); b == true && err == nil {
 		return
@@ -252,6 +305,8 @@ func (t *Target) QueryMac() {
 	return
 }
 
+// LookUpVendor tries to perform a vendor lookup based on the MAC address of the Target pointer by sending
+// a HTTP request to the vendor lookup API of 'macvendors.co'.
 func (t *Target) LookUpVendor() {
 	if t.MACAddr != nil {
 		vendorRes, err := macLookup.LookupVendor(t.MACAddr)
@@ -265,10 +320,12 @@ func (t *Target) LookUpVendor() {
 	t.Vendor = "N/A"
 }
 
+// Ping sends a ping request to the IP address of the Target pointer. count specifies how many requests should be send
+// and privileged
 func (t *Target) Ping(count int, privileged bool) (*ping.Statistics, error) {
 	pinger, err := ping.NewPinger(t.IPAddr.String())
 	if err != nil {
-		t.Rtts = nil
+		t.RTTs = nil
 		return nil, err
 	}
 	pinger.Timeout = time.Millisecond * 3000
@@ -279,22 +336,24 @@ func (t *Target) Ping(count int, privileged bool) (*ping.Statistics, error) {
 	pinger.Run()
 
 	stats := pinger.Statistics()
-	t.Rtts = stats.Rtts
+	t.RTTs = stats.Rtts
 	return stats, nil
 }
 
-func (t Target) AvgRtt() time.Duration {
-	if len(t.Rtts) == 0 {
+// AvgRTT calculates the average RTT of the last Target.Ping call.
+func (t Target) AvgRTT() time.Duration {
+	if len(t.RTTs) == 0 {
 		return -1
 	}
 	var avgNS int64 = 0
-	for _, rtt := range t.Rtts {
+	for _, rtt := range t.RTTs {
 		avgNS += rtt.Nanoseconds()
 	}
-	avgNS /= int64(len(t.Rtts))
+	avgNS /= int64(len(t.RTTs))
 	return time.Duration(avgNS)
 }
 
+// IsHost returns true when the Target pointer is the host and false otherwise.
 func (t *Target) IsHost() (bool, error) {
 	interfaces, err := net.Interfaces()
 	if err != nil {
@@ -330,6 +389,7 @@ func (t *Target) IsHost() (bool, error) {
 	return false, nil
 }
 
+// String returns a string representation of the Target pointer.
 func (t *Target) String() string {
 	var mac string
 	if t.MACAddr == nil {
@@ -349,14 +409,15 @@ func (t *Target) String() string {
 		"Ports:\n%s\n"+
 		"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
 		t.InitialTarget, t.IPAddr, t.HostName,
-		len(t.Rtts), t.AvgRtt(),
+		len(t.RTTs), t.AvgRTT(),
 		t.Vendor,
 		mac,
 		t.Location,
 		t.Status,
-		t.Ports.Preview())
+		t.Ports.Preview(30))
 }
 
+// ColorString returns a colored string representation of the Target pointer.
 func (t *Target) ColorString() string {
 	var mac string
 	if t.MACAddr == nil && t.Location == Local && runtime.GOOS == "windows" {
@@ -379,7 +440,7 @@ func (t *Target) ColorString() string {
 	}
 
 	var rtt string
-	avg := t.AvgRtt()
+	avg := t.AvgRTT()
 	if avg > 0 {
 		rtt = colorFmt.Ssuccessf("%v", avg)
 	} else {
@@ -397,14 +458,15 @@ func (t *Target) ColorString() string {
 		"Ports:\n%s\n"+
 		"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
 		t.InitialTarget, t.IPAddr, t.HostName,
-		len(t.Rtts), rtt,
+		len(t.RTTs), rtt,
 		vendor,
 		mac,
 		t.Location.ColorString(),
 		t.Status.ColorString(),
-		t.Ports.Preview())
+		t.Ports.Preview(30))
 }
 
+// String returns a string representation of TargetStatus.
 func (ts TargetStatus) String() string {
 	if ts == Online {
 		return "ONLINE"
@@ -416,6 +478,7 @@ func (ts TargetStatus) String() string {
 	return "N/A"
 }
 
+// String returns a string representation of NetworkLocation.
 func (n NetworkLocation) String() string {
 	if n == Local {
 		return "LOCAL"
@@ -427,6 +490,7 @@ func (n NetworkLocation) String() string {
 	return "N/A"
 }
 
+// ColorString returns a colored string representation of TargetStatus.
 func (ts TargetStatus) ColorString() string {
 	if ts == Online {
 		return colorFmt.Sopenf("ONLINE")
@@ -438,6 +502,7 @@ func (ts TargetStatus) ColorString() string {
 	return "N/A"
 }
 
+// ColorString returns a colored string representation of NetworkLocation.
 func (n NetworkLocation) ColorString() string {
 	if n == Local {
 		return colorFmt.Sinfof("LOCAL")
@@ -449,6 +514,8 @@ func (n NetworkLocation) ColorString() string {
 	return "N/A"
 }
 
+// octetsToTargets takes a two-dimensional array containing a list of values for each of the four octets as values
+// and returns an string array containing all the possible IP combinations you can build up with it.
 func octetsToTargets(octets [4][]int) []string {
 	var targets []string
 	for _, oc0 := range octets[0] {

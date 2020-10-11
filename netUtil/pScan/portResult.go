@@ -28,17 +28,27 @@ import (
 	"strings"
 )
 
-type PortResults struct {
-	Open     netUtil.Ports
-	Closed   netUtil.Ports
+// PortResult represents the result of a port scan for every port of the target.
+// The open, closed and filtered ports are contained in Open, Closed and Filtered
+// respectively to the outcome of the scan.
+type PortResult struct {
+	// Open is a list ports that where determined as open.
+	Open netUtil.Ports
+
+	// Closed is a list of ports that where determined as closed.
+	Closed netUtil.Ports
+
+	// Filtered is a list of ports that where determined as filtered.
 	Filtered netUtil.Ports
 }
 
-func NewPortResults() *PortResults {
-	return &PortResults{}
+// NewPortResult returns a pointer to an uninitialized instance of PortResult.
+func NewPortResult() *PortResult {
+	return &PortResult{}
 }
 
-func (p *PortResults) String() string {
+// String returns a string representation of the PortResult pointer.
+func (p *PortResult) String() string {
 	ret := "*************** PORT RESULT **********************\n"
 	if len(p.Open) > 0 {
 		ret += "Open TCP Ports:\n"
@@ -74,7 +84,8 @@ func (p *PortResults) String() string {
 	return ret
 }
 
-func (p *PortResults) ColorString() string {
+// ColorString returns a colored string representation of the PortResult pointer.
+func (p *PortResult) ColorString() string {
 	ret := "*************** PORT RESULT **********************\n"
 	if len(p.Open) > 0 {
 		ret += "Open TCP Ports:\n"
@@ -110,7 +121,9 @@ func (p *PortResults) ColorString() string {
 	return ret
 }
 
-func (p *PortResults) CustomColorString(showClosed bool) string {
+// CustomColorString returns a colored string representation of the PortResult pointer.
+// The parameter showClosed controls if closed and filtered ports also will be incorporated into the string.
+func (p *PortResult) CustomColorString(showClosed bool) string {
 	ret := "*************** PORT RESULT **********************\n"
 	if len(p.Open) > 0 {
 		ret += "Open TCP Ports:\n"
@@ -149,7 +162,7 @@ func (p *PortResults) CustomColorString(showClosed bool) string {
 }
 
 /*
-func (p *PortResults) String() string {
+func (p *PortResult) String() string {
 	var c int
 	maxPerLine := 5
 

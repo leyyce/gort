@@ -25,22 +25,41 @@ import (
 	"time"
 )
 
+// ScanResult represents the result of a single port scan.
+// It contains the scans StartTime and EndTime, the scan Target and the PortResult.
 type ScanResult struct {
+	// StartTime is the time the scan was started at.
 	StartTime time.Time
-	EndTime   time.Time
-	Target    *Target
-	Ports     *PortResults
+
+	// EndTime is the time the scan was finished at.
+	EndTime time.Time
+
+	// Target is the scan Target.
+	Target *Target
+
+	// Ports is the PortResult of the scan.
+	Ports *PortResult
 }
 
+// ScanResults is an array of ScanResult pointers.
+type ScanResults []*ScanResult
+
+// MultiScanResult represents the scan result of multiple Targets.
 type MultiScanResult struct {
-	Resolved   []*ScanResult
+	// Resolved contains the ScanResults of resolved hosts
+	Resolved ScanResults
+
+	// Unresolved contains the unresolved Targets
 	Unresolved Targets
 }
 
+// NewScanResult returns the pointer to a new ScanResult instance.
+// The parameter t is the Target of the scan and startTime is the start time.Time of the scan.
 func NewScanResult(t *Target, startTime time.Time) *ScanResult {
-	return &ScanResult{Target: t, StartTime: startTime, Ports: NewPortResults()}
+	return &ScanResult{Target: t, StartTime: startTime, Ports: NewPortResult()}
 }
 
+// String returns a string representation of the ScanResult pointer.
 func (s *ScanResult) String() string {
 	return fmt.Sprintf(""+
 		"=============== SCAN RESULT ================================\n\n"+
@@ -54,6 +73,7 @@ func (s *ScanResult) String() string {
 		s.Ports)
 }
 
+// ColorString returns a colored string representation of the ScanResult pointer.
 func (s *ScanResult) ColorString() string {
 	return fmt.Sprintf(""+
 		"=============== SCAN RESULT ================================\n\n"+
@@ -67,6 +87,8 @@ func (s *ScanResult) ColorString() string {
 		s.Ports.ColorString())
 }
 
+// CustomColorString returns a colored string representation of the ScanResult pointer.
+// The parameter showClosed controls if closed and filtered ports also will be incorporated into the string.
 func (s *ScanResult) CustomColorString(showClosed bool) string {
 	return fmt.Sprintf(""+
 		"=============== SCAN RESULT ================================\n\n"+
@@ -80,6 +102,7 @@ func (s *ScanResult) CustomColorString(showClosed bool) string {
 		s.Ports.CustomColorString(showClosed))
 }
 
+// String returns a string representation of the MultiScanResult pointer.
 func (m *MultiScanResult) String() string {
 	ret := "" +
 		"#################################################################\n" +
@@ -105,6 +128,7 @@ func (m *MultiScanResult) String() string {
 	return ret
 }
 
+// ColorString returns a colored string representation of the ScanResult pointer.
 func (m *MultiScanResult) ColorString() string {
 	ret := "" +
 		"#################################################################\n" +
@@ -130,6 +154,9 @@ func (m *MultiScanResult) ColorString() string {
 	return ret
 }
 
+// CustomColorString returns a colored string representation of the ScanResult pointer.
+// The parameter onlineOnly controls if targets not confirmed as online will be incorporated into the string.
+// showClosed controls if closed and filtered ports also will be incorporated into the string.
 func (m *MultiScanResult) CustomColorString(onlineOnly, showClosed bool) string {
 	ret := "" +
 		"#################################################################\n" +
